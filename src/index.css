@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estilos para el indicador de fuerza de contraseña */
+.strength-weak .strength-segment:nth-child(1) {
+  background-color: #EC0617;
+}
+
+.strength-medium .strength-segment:nth-child(1),
+.strength-medium .strength-segment:nth-child(2) {
+  background-color: #FFA500;
+}
+
+.strength-strong .strength-segment:nth-child(1),
+.strength-strong .strength-segment:nth-child(2),
+.strength-strong .strength-segment:nth-child(3) {
+  background-color: #EC0617;
+}
+
+/* Estilos personalizados para los campos del formulario */
+@layer components {
+  .form-input-focus {
+    @apply focus:outline-none focus:border-[#EC0617];
+  }
+}
