@@ -5,27 +5,29 @@ import { Mail, Lock, User, Phone, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const RegisterPage = () => {
-  const navigate = useNavigate();
-  const { register } = useAuth();
+  
   const [isLoading, setIsLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
+    //lastName: '',
     email: '',
     password: '',
     confirmPassword: ''
   });
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
+    //lastName: '',
     email: '',
-    phone: '',
+    //phone: '',
     password: '',
     confirmPassword: ''
   });
+
+  const navigate = useNavigate();
+  const { register } = useAuth();
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -55,7 +57,7 @@ const RegisterPage = () => {
 
   const validateField = (name, value) => {
     switch (name) {
-      case 'firstName':
+      case 'name':
         return !value.trim() ? 'El nombre es obligatorio' : '';
       case 'lastName':
         return !value.trim() ? 'El apellido es obligatorio' : '';
@@ -115,7 +117,7 @@ const RegisterPage = () => {
     
     // Validar todos los campos
     const newErrors = {
-      firstName: validateField('firstName', formData.firstName),
+      name: validateField('name', formData.name),
       lastName: validateField('lastName', formData.lastName),
       email: validateField('email', formData.email),
       password: validateField('password', formData.password),
@@ -132,7 +134,7 @@ const RegisterPage = () => {
     setIsLoading(true);
     try {
       // Pasar el nombre y apellido como parámetros separados a register
-      await register(formData.email, formData.password, formData.firstName, formData.lastName);
+      await register(formData.email, formData.password, formData.name, formData.lastName);
       toast.success('¡Registro exitoso!');
       navigate('/');
     } catch (error) {
@@ -153,21 +155,21 @@ const RegisterPage = () => {
           <form onSubmit={handleSubmit} autoComplete="off">
             <div className="form-row flex gap-4 mb-5">
               <div className="form-group flex-1">
-                <label htmlFor="firstName" className="block text-black mb-2 font-medium">
+                <label htmlFor="name" className="block text-black mb-2 font-medium">
                   Nombre
                 </label>
                 <input
-                  id="firstName"
-                  name="firstName"
+                  id="name"
+                  name="name"
                   type="text"
                   required
                   className="w-full p-3 border border-[#ddd] rounded text-base focus:outline-none focus:border-[#EC0617] transition-all"
                   placeholder="Tu nombre"
-                  value={formData.firstName}
+                  value={formData.name}
                   onChange={handleChange}
                 />
-                {errors.firstName && (
-                  <p className="error-message text-[#EC0617] text-sm mt-1">{errors.firstName}</p>
+                {errors.name && (
+                  <p className="error-message text-[#EC0617] text-sm mt-1">{errors.name}</p>
                 )}
               </div>
               <div className="form-group flex-1">

@@ -8,8 +8,8 @@ const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState('personal');
   const [isEditing, setIsEditing] = useState(false);
   const [userData, setUserData] = useState({
-    firstName: user?.firstName || 'John',
-    lastName: user?.lastName || 'Doe',
+    name: user?.name || 'John',
+    //lastName: user?.lastName || 'Doe',
     email: user?.email || 'john.doe@example.com',
     phone: user?.phone || '555-123-4567',
     address: user?.address || '123 Strawberry Lane',
@@ -98,7 +98,7 @@ const ProfilePage = () => {
                   <User size={24} className="text-red-600" />
                 </div>
                 <div>
-                  <h2 className="font-semibold text-lg text-gray-800">{userData.firstName} {userData.lastName}</h2>
+                   <h2 className="font-semibold text-lg text-gray-800">{userData.name}</h2>
                   <p className="text-sm text-gray-500">{userData.email}</p>
                 </div>
               </div>
@@ -185,7 +185,7 @@ const ProfilePage = () => {
                             type="text"
                             id="firstName"
                             name="firstName"
-                            value={userData.firstName}
+                            value={userData.name}
                             onChange={handleInputChange}
                             className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                           />

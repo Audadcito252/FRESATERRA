@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { 
+  BrowserRouter as Router, 
+  Routes, 
+  Route,
+  createBrowserRouter, 
+  RouterProvider 
+} from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { ShoppingCartProvider } from './contexts/ShoppingCartContext';
 import { AuthProvider } from './contexts/AuthContext';
@@ -26,7 +32,10 @@ function App() {
   return (
     <AuthProvider>
       <ShoppingCartProvider>
-        <Router>
+        <Router future={{ 
+          v7_startTransition: true ,
+          v7_relativeSplatPath: true
+        }}>
           <Toaster position="top-center" />
           <Routes>
             <Route path="/" element={<MainLayout />}>
