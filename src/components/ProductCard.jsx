@@ -56,7 +56,7 @@ const ProductCard = ({ product }) => {
             }`}
           />
           
-          {/* Quick Add To Cart Button */}
+          {/* agregar al carrito boton */}
           <div className={`absolute bottom-0 left-0 right-0 bg-white bg-opacity-90 p-2 transform transition-transform duration-300 ${
             isHovered ? 'translate-y-0' : 'translate-y-full'
           }`}>
@@ -65,12 +65,12 @@ const ProductCard = ({ product }) => {
               className="w-full flex items-center justify-center bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md transition-colors"
             >
               <ShoppingCart size={16} className="mr-2" />
-              Add to Cart
+              Agregar al carrito
             </button>
           </div>
         </div>
 
-        {/* Product Info */}
+        {/* Información del producto */}
         <div className="p-4">
           <h3 className="text-lg font-medium text-gray-800 line-clamp-1">{product.name}</h3>
           
