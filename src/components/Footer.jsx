@@ -4,26 +4,25 @@ import { Instagram, Facebook, Twitter, MapPin, Phone, Mail } from 'lucide-react'
 const Footer = () => {
   return (
     <footer className="bg-gray-900 text-white">
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="container mx-auto px-4 py-16">        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
           {/* Company Info */}
-          <div>
-            <h3 className="text-2xl font-bold mb-4">
-              <span className="text-green-500">FRESA</span>
-              <span className="text-red-500">TERRA</span>
-            </h3>
-            <p className="mb-4 text-gray-300">
-              Las mejores fresas, calidad premium, entregadas frescas a tu puerta.
-            </p>
-            <div className="flex space-x-4">
-              <a href="#" className="text-gray-300 hover:text-white transition-colors">
-                <Instagram size={20} />
+          <div className="lg:col-span-1 flex flex-col items-center lg:items-start">
+            <div className="mb-1">
+              <img 
+                src="/logofresaterra.svg" 
+                alt="FresaTerra" 
+                className="h-40 w-40 object-contain" 
+              />
+            </div>
+            <p className="mb-6 text-gray-300 leading-relaxed text-center lg:text-left">
+              Las mejores fresas, calidad premium, entregadas frescas a tu puerta. 
+              Cultivamos con amor y cuidado para ofrecerte el mejor sabor.
+            </p>            <div className="flex space-x-4">
+              <a href="#" className="text-gray-300 hover:text-red-400 transition-colors duration-300 p-2 rounded-full hover:bg-gray-800">
+                <Instagram size={24} />
               </a>
-              <a href="#" className="text-gray-300 hover:text-white transition-colors">
-                <Facebook size={20} />
-              </a>
-              <a href="#" className="text-gray-300 hover:text-white transition-colors">
-                <Twitter size={20} />
+              <a href="#" className="text-gray-300 hover:text-red-400 transition-colors duration-300 p-2 rounded-full hover:bg-gray-800">
+                <Facebook size={24} />
               </a>
             </div>
           </div>
@@ -86,15 +85,9 @@ const Footer = () => {
           <div>
             <h4 className="text-lg font-semibold mb-4">Contáctanos</h4>
             <ul className="space-y-2">
-              <li className="flex items-start">
-                <MapPin size={18} className="mr-2 mt-1 flex-shrink-0" />
-                <span className="text-gray-300">
-                  Calle Fresas 123, Lima, Perú
-                </span>
-              </li>
               <li className="flex items-center">
                 <Phone size={18} className="mr-2 flex-shrink-0" />
-                <span className="text-gray-300">+51 123 456 789</span>
+                <span className="text-gray-300">929 714 978</span>
               </li>
               <li className="flex items-center">
                 <Mail size={18} className="mr-2 flex-shrink-0" />

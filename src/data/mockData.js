@@ -29,9 +29,9 @@ export const mockProducts = [
     description: 'Nuestras fresas frescas premium son seleccionadas a mano en su punto óptimo de maduración. Dulces, jugosas y llenas de sabor, son perfectas para snacks, postres o tus recetas favoritas. Cada caja contiene aproximadamente 1kg de fresas frescas.',
     price: 12.99,
     images: [
-      'https://images.pexels.com/photos/1132047/pexels-photo-1132047.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
-      'https://images.pexels.com/photos/70746/strawberries-red-fruit-royalty-free-70746.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
-      'https://images.pexels.com/photos/59945/strawberry-fruit-delicious-red-59945.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+      '/img/paquete1kg1.jpg',
+      '/img/paquete1kg2.png',
+      '/img/paquete1kg3.png',
     ],
     categoryId: '1',
     stock: 50,
