@@ -44,7 +44,7 @@ const HomePage = () => {
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-2xl text-white">
             <h1 className="text-4xl md:text-5xl font-bold mb-4">Fresas frescas a domicilio</h1>
-            <p className="text-xl mb-8">Las fresas más dulces y jugosas, directas de nuestros campos a tu mesa.</p>
+            <p className="text-xl mb-8">Las fresas más dulces y jugosas, directas de nuestros invernaderos a tu mesa.</p>
             <Link 
               to="/products" 
               className="inline-block bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-3 rounded-lg transition-colors"

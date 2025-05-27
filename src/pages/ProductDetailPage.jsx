@@ -110,12 +110,10 @@ const ProductDetailPage = () => {
               <div
                 className="w-full h-80 rounded-lg mb-4 border-4 border-red-100 shadow-md overflow-hidden bg-white flex items-center justify-center"
                 style={{ position: 'relative' }}
-              >
-                <img
+              >                <img
                   src={selectedImage}
                   alt={product.name}
-                  className="w-full h-80 object-cover transition-transform duration-200 cursor-zoom-in"
-                  style={{ objectPosition: 'center' }}
+                  className="w-full h-80 object-cover object-center transition-transform duration-200 cursor-zoom-in"
                   onMouseMove={e => {
                     const rect = e.currentTarget.getBoundingClientRect();
                     const x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -143,12 +141,11 @@ const ProductDetailPage = () => {
             </div>
             {/* Miniaturas y galería interactiva */}
             <div className="flex gap-2 justify-center mt-2 overflow-x-auto">
-              {product.images.map((img, idx) => (
-                <img
+              {product.images.map((img, idx) => (                <img
                   key={idx}
                   src={img}
                   alt={product.name + ' ' + (idx + 1)}
-                  className={`w-16 h-16 object-cover rounded-md border cursor-pointer transition-all duration-200 ${selectedImage === img ? 'ring-2 ring-red-500 scale-110' : ''}`}
+                  className={`w-16 h-16 object-contain object-center rounded-md border cursor-pointer transition-all duration-200 ${selectedImage === img ? 'ring-2 ring-red-500 scale-110' : ''}`}
                   onClick={() => setSelectedImage(img)}
                 />
               ))}

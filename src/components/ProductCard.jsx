@@ -47,11 +47,11 @@ const ProductCard = ({ product }) => {
 
       <Link to={`/products/${product.id}`}>
         {/* Product Image */}
-        <div className="relative h-56 rounded-t-lg overflow-hidden">
+        <div className="relative w-full h-56 rounded-t-lg overflow-hidden">
           <img
             src={product.images[0]}
             alt={product.name}
-            className={`w-full h-full object-cover transition-transform duration-700 ${
+            className={`absolute inset-0 w-full h-full object-cover transition-transform duration-700 ${
               isHovered ? 'scale-110' : 'scale-100'
             }`}
           />
