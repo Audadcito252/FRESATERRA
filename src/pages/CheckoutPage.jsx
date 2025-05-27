@@ -38,54 +38,69 @@ const CheckoutPage = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     
     if (currentStep === 2) {
-      // Generar ID de pedido
-      const newOrderId = 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase() + '-' + 
-                         Math.random().toString(36).substring(2, 7).toUpperCase();
-      
-      setOrderId(newOrderId);
-      
-      // Crear el objeto de pedido
-      const newOrder = {
-        id: newOrderId,
-        date: new Date().toLocaleDateString(),
-        total: orderTotal,
-        status: 'Procesando',
-        items: cartItems.map(({ product, quantity }) => ({
-          name: product.name,
-          price: product.salePrice || product.price,
-          quantity: quantity
-        }))
-      };
-      
-      // Añadir el pedido al historial del usuario si está autenticado
-      if (isAuthenticated) {
-        const userOrders = user.orders || [];
-        const updatedProfile = {
-          ...user,
-          orders: [newOrder, ...userOrders]
-        };
-        
-        // Actualizar el perfil con el nuevo pedido
-        updateProfile(updatedProfile);
+      // Lógica para Mercado Pago
+      const itemsForMercadoPago = cartItems.map(item => ({
+        title: item.product.name,
+        quantity: item.quantity,
+        unit_price: parseFloat(item.product.salePrice || item.product.price),
+        description: item.product.description || undefined, // Asegúrate que tu backend maneje 'undefined' o no lo envíe
+        // currency_id: 'PEN' // El backend ya debería manejar esto o puedes añadirlo si es necesario
+      }));
+
+      try {
+        // Asegúrate de que esta URL es la correcta para tu backend de Laravel
+        const response = await fetch('http://127.0.0.1:8000/api/create-preference', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            // Si tienes autenticación de API, añade el token aquí
+            // 'Authorization': `Bearer ${tuTokenDeAutenticacionApi}`,
+          },
+          body: JSON.stringify({ items: itemsForMercadoPago }),
+        });
+
+        setIsSubmitting(false); // Detener el indicador de carga después de la respuesta
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Error creating Mercado Pago preference:', errorData);
+          alert(`Error del servidor: ${errorData.message || 'No se pudo iniciar el pago con Mercado Pago.'}`);
+          return;
+        }
+
+        const preference = await response.json();
+
+        if (preference.init_point) {
+          window.location.href = preference.init_point;
+        } else if (preference.sandbox_init_point) { // Para entorno de pruebas
+          window.location.href = preference.sandbox_init_point;
+        } else {
+          console.error('No init_point received from Mercado Pago');
+          alert('Error: No se recibió el punto de inicio para el pago de Mercado Pago.');
+        }
+        // No se limpia el carrito ni se avanza al paso 3 aquí.
+        // Eso ocurrirá después de la redirección de Mercado Pago.
+
+      } catch (error) {
+        setIsSubmitting(false);
+        console.error('Network error or other issue with Mercado Pago:', error);
+        alert('Error de conexión al intentar procesar el pago con Mercado Pago.');
       }
-      
-      // Limpiar el carrito después de completar la compra
-      setTimeout(() => {
-        clearCart();
-        setIsSubmitting(false);
-        setCurrentStep(currentStep + 1);
-      }, 1500);
+
     } else {
-      // Solo avanza al siguiente paso si no es el paso final
+      // Lógica para otros pasos (avanzar al siguiente paso)
+      // La generación de orderId, updateProfile y clearCart se movieron de aquí
+      // ya que deben ocurrir DESPUÉS de un pago exitoso.
       setTimeout(() => {
         setIsSubmitting(false);
         setCurrentStep(currentStep + 1);
-      }, 1500);
+      }, 1500); // Simulación de carga
     }
   };
 
