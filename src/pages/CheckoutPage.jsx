@@ -458,10 +458,10 @@ const CheckoutPage = () => {
                 <div className="mt-6 pt-4 border-t border-dashed">
                   <div className="flex items-center text-green-700 text-sm mb-1">
                     <Truck size={16} className="mr-2" />
-                    <span>Envío en 3-5 días hábiles</span>
+                    <span>Envío en 1-2 horas hábiles</span>
                   </div>
                   <div className="text-xs text-gray-500">
-                    Todos los pedidos están sujetos a disponibilidad y se procesarán en un plazo de 24 horas.
+                    Todos los pedidos están sujetos a disponibilidad y se procesarán en un plazo de 1 hora.
                   </div>
                 </div>
               )}

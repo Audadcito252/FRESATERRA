@@ -17,7 +17,7 @@ const ProductCard = ({ product }) => {
     e.preventDefault();
     e.stopPropagation();
     addToCart(product, 1);
-    toast.success(`${product.name} added to cart`);
+    toast.success(`${product.name} agregado al carrito`);
   };
 
   // Calculate discount percentage if there's a sale price
@@ -41,7 +41,7 @@ const ProductCard = ({ product }) => {
       {/* Featured Badge */}
       {product.featured && (
         <div className="absolute top-3 right-3 z-10 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-md">
-          Featured
+          Presentado
         </div>
       )}
 
@@ -116,7 +116,7 @@ const ProductCard = ({ product }) => {
             {product.stock > 10 ? (
               <span className="text-green-600">En stock</span>
             ) : product.stock > 0 ? (
-              <span className="text-orange-500">Low Stock ({product.stock} left)</span>
+              <span className="text-orange-500">Bajo Stock ({product.stock} cantidad)</span>
             ) : (
               <span className="text-red-600">Out of Stock</span>
             )}

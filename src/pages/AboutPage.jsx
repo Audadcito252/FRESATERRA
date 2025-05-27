@@ -193,7 +193,7 @@ const AboutPage = () => {
                                             </svg>
                                         </div>
                                         <div className="ml-3">
-                                            <p className="text-sm text-gray-600">info@fresaterra.com</p>
+                                            <p className="text-sm text-gray-600">fresaterra@gmail.com</p>
                                         </div>
                                     </div>
                                 </div>
