@@ -8,15 +8,15 @@ const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState('personal');
   const [isEditing, setIsEditing] = useState(false);
   const [userData, setUserData] = useState({
-    name: user?.name || 'John',
-    //lastName: user?.lastName || 'Doe',
-    email: user?.email || 'john.doe@example.com',
-    phone: user?.phone || '555-123-4567',
-    address: user?.address || '123 Strawberry Lane',
-    city: user?.city || 'Berry City',
-    state: user?.state || 'Frutalia',
-    zipCode: user?.zipCode || '12345'
+    name: user?.name || '',
+    email: user?.email || '',
+    address: user?.address || '',
+    city: user?.city || '',
+    state: user?.state || '',
+    zipCode: user?.zipCode || ''
   });
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   // Lista de pedidos - usar órdenes del usuario si existen, o usar datos mock
   const userOrders = user?.orders || [];
@@ -79,9 +79,16 @@ const ProfilePage = () => {
     });
   };
 
-  const handleSaveProfile = () => {
-    updateProfile(userData);
-    setIsEditing(false);
+  const handleSaveProfile = async () => {
+    setError(null);
+    setSuccess(null);
+    const result = await updateProfile({ name: userData.name, email: userData.email });
+    if (result.success) {
+      setIsEditing(false);
+      setSuccess(result.message || 'Perfil actualizado exitosamente');
+    } else {
+      setError(result.error || 'Error al actualizar el perfil');
+    }
   };
 
   return (
@@ -97,10 +104,8 @@ const ProfilePage = () => {
                 <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
                   <User size={24} className="text-red-600" />
                 </div>
-                <div>
-                   <h2 className="font-semibold text-lg text-gray-800">{userData.name}</h2>
-                  <p className="text-sm text-gray-500">{userData.email}</p>
-                </div>
+                <h2 className="font-semibold text-lg text-gray-800">{user?.name || ''}</h2>
+                {/* <p className="text-sm text-gray-500">{userData.email}</p> */}
               </div>
               
               <nav className="mt-4">
@@ -180,23 +185,12 @@ const ProfilePage = () => {
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
                           <input
                             type="text"
-                            id="firstName"
-                            name="firstName"
+                            id="name"
+                            name="name"
                             value={userData.name}
-                            onChange={handleInputChange}
-                            className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">Apellido</label>
-                          <input
-                            type="text"
-                            id="lastName"
-                            name="lastName"
-                            value={userData.lastName}
                             onChange={handleInputChange}
                             className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                           />
@@ -212,19 +206,9 @@ const ProfilePage = () => {
                             className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                           />
                         </div>
-                        <div>
-                          <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-                          <input
-                            type="tel"
-                            id="phone"
-                            name="phone"
-                            value={userData.phone}
-                            onChange={handleInputChange}
-                            className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                          />
-                        </div>
                       </div>
-                      
+                      {error && <div className="text-red-600 text-sm">{error}</div>}
+                      {success && <div className="text-green-600 text-sm">{success}</div>}
                       <div className="flex justify-end space-x-3 pt-4">
                         <button
                           onClick={() => setIsEditing(false)}
@@ -246,22 +230,14 @@ const ProfilePage = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
                         <div>
                           <label className="block text-sm font-medium text-gray-500">Nombre</label>
-                          <p className="text-gray-900">{userData.firstName} {userData.lastName}</p>
+                          <p className="text-gray-900">{userData.name}</p>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-500">Email</label>
                           <p className="text-gray-900">{userData.email}</p>
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-500">Teléfono</label>
-                          <p className="text-gray-900">{userData.phone}</p>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-500">Dirección Predeterminada</label>
-                          <p className="text-gray-900">{userData.address}</p>
-                          <p className="text-gray-900">{userData.city}, {userData.state} {userData.zipCode}</p>
-                        </div>
                       </div>
+                      {success && <div className="text-green-600 text-sm">{success}</div>}
                     </div>
                   )}
                 </div>

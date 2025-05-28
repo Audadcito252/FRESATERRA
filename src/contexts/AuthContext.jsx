@@ -412,55 +412,39 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (userData) => {
     setIsLoading(true);
     try {
-      // Verificar que el usuario esté autenticado
       const token = localStorage.getItem('token');
       if (!token) {
-        throw new Error('Debes iniciar sesión para actualizar tu perfil');
+        return { success: false, error: 'Debes iniciar sesión para actualizar tu perfil' };
       }
-
-      // Asegurar que el token está en los headers
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
-      // Llamada a la API para actualizar el perfil
-      // Asumimos que tienes un endpoint como /api/users/{id} o /api/profile
       const response = await api.patch('/api/profile', userData);
-
       console.log('Update profile response:', response.data);
-
-      // Si la actualización fue exitosa
       if (response.data && response.data.user) {
         const updatedUser = response.data.user;
-
-        // Actualizar el estado y localStorage
         setUser(updatedUser);
         localStorage.setItem('user', JSON.stringify(updatedUser));
-
-        return updatedUser;
+        return {
+          success: true,
+          message: response.data.message || 'Perfil actualizado exitosamente',
+          user: updatedUser
+        };
       }
-
-      throw new Error('La respuesta del servidor no incluyó los datos actualizados');
+      return { success: false, error: 'La respuesta del servidor no incluyó los datos actualizados' };
     } catch (error) {
       console.error('Profile update failed:', error);
-
-      // Manejo específico de errores de validación
       if (error.response?.status === 422) {
-        throw new Error(
-          Object.values(error.response.data.error || error.response.data.errors || {})
-            .flat()
-            .join('\n')
-        );
+        return {
+          success: false,
+          error: Object.values(error.response.data.error || error.response.data.errors || {}).flat().join('\n')
+        };
       }
-
-      // Manejo de error de autenticación
       if (error.response?.status === 401) {
-        // Token inválido o expirado
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setUser(null);
-        throw new Error('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión');
+        return { success: false, error: 'Tu sesión ha expirado. Por favor, vuelve a iniciar sesión' };
       }
-
-      throw error;
+      return { success: false, error: 'Error al actualizar el perfil' };
     } finally {
       setIsLoading(false);
     }
