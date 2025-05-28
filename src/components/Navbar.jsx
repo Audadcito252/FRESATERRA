@@ -135,7 +135,7 @@ const Navbar = () => {
               <div className="relative group">
                 <button className="flex items-center text-gray-800 hover:text-red-600 transition-colors">
                   <User size={20} />
-                  <span className="ml-2">{user?.firstName}</span>
+                  <span className="ml-2">{user?.name}</span>
                 </button>
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300">
                   <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-red-50">
