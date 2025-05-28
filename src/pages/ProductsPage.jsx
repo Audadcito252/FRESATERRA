@@ -1,62 +1,78 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Filter, ChevronDown, Search, X } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
-import { mockProducts, mockCategories } from '../data/mockData';
 
 const ProductsPage = () => {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
-  
-  // Parse URL parameters
+
   const initialCategory = searchParams.get('category') || '';
   const initialSearchQuery = searchParams.get('search') || '';
-  
-  // State for products and filters
+
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState([]); // Aquí puedes cargar categorías si tienes API
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [sortOption, setSortOption] = useState('relevance');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-  
-  // Precio mínimo y máximo
+
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(100);
   const [priceRange, setPriceRange] = useState([0, 100]);
 
-  // Get products data
+  // Fetch products from API
   useEffect(() => {
-    // In a real app, these would be API calls
-    setProducts(mockProducts);
-    setCategories(mockCategories);
-    
-    // Encontrar el precio mínimo y máximo real en los productos
-    if (mockProducts.length > 0) {
-      const productPrices = mockProducts.map(p => p.salePrice || p.price);
-      const calculatedMinPrice = Math.floor(Math.min(...productPrices));
-      const calculatedMaxPrice = Math.ceil(Math.max(...productPrices));
-      
-      setMinPrice(calculatedMinPrice);
-      setMaxPrice(calculatedMaxPrice);
-      setPriceRange([calculatedMinPrice, calculatedMaxPrice]);
-    }
+    const fetchData = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/productos');
+        const data = await response.json();
+
+        const mappedProducts = data.map(product => ({
+          id: product.id,
+          name: product.nombre,
+          description: product.descripcion || '',
+          price: parseFloat(product.precio),
+          salePrice: null,  // Ajusta si tienes precio en oferta
+          categoryId: product.categoria_id || null,
+          featured: false,
+          imageUrl: product.url_imagen,
+          reviews: product.reviews || [], // Por si tienes reseñas
+          averageRating: product.averageRating || 0,
+          stock: product.stock ?? 0,
+        }));
+
+        setProducts(mappedProducts);
+
+        if (mappedProducts.length > 0) {
+          const prices = mappedProducts.map(p => p.salePrice ?? p.price);
+          const min = Math.floor(Math.min(...prices));
+          const max = Math.ceil(Math.max(...prices));
+          setMinPrice(min);
+          setMaxPrice(max);
+          setPriceRange([min, max]);
+        }
+
+      } catch (error) {
+        console.error('Error al cargar productos:', error);
+      }
+    };
+
+    fetchData();
   }, []);
 
-  // Filter and sort products
+  // Filtering and sorting logic
   useEffect(() => {
     let filtered = [...products];
-    
-    // Filter by category
+
     if (selectedCategory) {
       filtered = filtered.filter(product => {
         const category = categories.find(c => c.slug === selectedCategory);
         return category ? product.categoryId === category.id : true;
       });
     }
-    
-    // Filter by search query
+
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -65,28 +81,18 @@ const ProductsPage = () => {
           product.description.toLowerCase().includes(query)
       );
     }
-    
-    // Filter by price range
+
     filtered = filtered.filter(product => {
-      const price = product.salePrice || product.price;
+      const price = product.salePrice ?? product.price;
       return price >= priceRange[0] && price <= priceRange[1];
     });
-    
-    // Sort products
+
     switch (sortOption) {
       case 'priceLow':
-        filtered.sort((a, b) => {
-          const priceA = a.salePrice || a.price;
-          const priceB = b.salePrice || b.price;
-          return priceA - priceB;
-        });
+        filtered.sort((a, b) => (a.salePrice ?? a.price) - (b.salePrice ?? b.price));
         break;
       case 'priceHigh':
-        filtered.sort((a, b) => {
-          const priceA = a.salePrice || a.price;
-          const priceB = b.salePrice || b.price;
-          return priceB - priceA;
-        });
+        filtered.sort((a, b) => (b.salePrice ?? b.price) - (a.salePrice ?? a.price));
         break;
       case 'nameAZ':
         filtered.sort((a, b) => a.name.localeCompare(b.name));
@@ -95,29 +101,23 @@ const ProductsPage = () => {
         filtered.sort((a, b) => b.name.localeCompare(a.name));
         break;
       case 'newest':
-        // In a real app, we would sort by date
-        // For mock data, just leaving the default order
+        // No se ordena porque no hay fecha, puedes agregar fecha si tienes
         break;
       default:
-        // relevance - in a real app, this would use a more complex algorithm
-        // For mock data, prioritize featured products
         filtered.sort((a, b) => Number(b.featured) - Number(a.featured));
         break;
     }
-    
+
     setFilteredProducts(filtered);
   }, [products, categories, selectedCategory, searchQuery, priceRange, sortOption]);
 
-  // Reset filters
   const handleResetFilters = () => {
     setSelectedCategory('');
     setSearchQuery('');
-    // Restablecer al rango de precios inicial calculado de los productos
     setPriceRange([minPrice, maxPrice]);
     setSortOption('relevance');
   };
 
-  // Scroll to top on mount
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
@@ -134,7 +134,7 @@ const ProductsPage = () => {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Mobile filters toggle */}
+        {/* Mobile filter toggle */}
         <div className="md:hidden mb-4">
           <button
             onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
@@ -150,11 +150,7 @@ const ProductsPage = () => {
 
         <div className="flex flex-col md:flex-row">
           {/* Sidebar Filters */}
-          <div 
-            className={`md:w-1/4 md:pr-6 ${
-              isMobileFilterOpen ? 'block' : 'hidden'
-            } md:block`}
-          >
+          <div className={`md:w-1/4 md:pr-6 ${isMobileFilterOpen ? 'block' : 'hidden'} md:block`}>
             <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
               <div className="mb-6">
                 <h3 className="font-medium text-lg mb-3">Buscar</h3>
@@ -178,53 +174,18 @@ const ProductsPage = () => {
                 </div>
               </div>
 
-              <div className="mb-6">
-                <h3 className="font-medium text-lg mb-3">Categorías</h3>
-                <div className="space-y-2">
-                  <div className="flex items-center">
-                    <input
-                      id="category-all"
-                      type="radio"
-                      name="category"
-                      checked={selectedCategory === ''}
-                      onChange={() => setSelectedCategory('')}
-                      className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300"
-                    />
-                    <label htmlFor="category-all" className="ml-2 text-gray-700">
-                      Todos los productos
-                    </label>
-                  </div>
-                  {categories.map((category) => (
-                    <div key={category.id} className="flex items-center">
-                      <input
-                        id={`category-${category.id}`}
-                        type="radio"
-                        name="category"
-                        checked={selectedCategory === category.slug}
-                        onChange={() => setSelectedCategory(category.slug)}
-                        className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300"
-                      />
-                      <label htmlFor={`category-${category.id}`} className="ml-2 text-gray-700">
-                        {category.name}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
+              {/* Rango de precio */}
               <div className="mb-6">
                 <h3 className="font-medium text-lg mb-3">Rango de precio</h3>
                 <div className="px-2 space-y-6">
                   <div>
-                    <label htmlFor="min-price-range" className="block text-sm text-gray-600 mb-1">
+                    <label className="block text-sm text-gray-600 mb-1">
                       Precio mínimo: S/ {priceRange[0].toFixed(2)}
                     </label>
                     <input
-                      id="min-price-range"
                       type="range"
                       min={minPrice}
                       max={maxPrice}
-                      step="1"
                       value={priceRange[0]}
                       onChange={(e) => {
                         const value = parseInt(e.target.value);
@@ -232,19 +193,17 @@ const ProductsPage = () => {
                           setPriceRange([value, priceRange[1]]);
                         }
                       }}
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-red-600"
+                      className="w-full"
                     />
                   </div>
                   <div>
-                    <label htmlFor="max-price-range" className="block text-sm text-gray-600 mb-1">
+                    <label className="block text-sm text-gray-600 mb-1">
                       Precio máximo: S/ {priceRange[1].toFixed(2)}
                     </label>
                     <input
-                      id="max-price-range"
                       type="range"
                       min={minPrice}
                       max={maxPrice}
-                      step="1"
                       value={priceRange[1]}
                       onChange={(e) => {
                         const value = parseInt(e.target.value);
@@ -252,18 +211,18 @@ const ProductsPage = () => {
                           setPriceRange([priceRange[0], value]);
                         }
                       }}
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-red-600"
+                      className="w-full"
                     />
                   </div>
-                  <div className="flex justify-between text-sm text-gray-600 font-medium">
-                    <span>Rango: S/ {priceRange[0].toFixed(2)} - S/ {priceRange[1].toFixed(2)}</span>
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>Rango: S/ {priceRange[0]} - S/ {priceRange[1]}</span>
                   </div>
                 </div>
               </div>
 
               <button
                 onClick={handleResetFilters}
-                className="w-full py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
               >
                 Restablecer filtros
               </button>
@@ -272,7 +231,6 @@ const ProductsPage = () => {
 
           {/* Product Grid */}
           <div className="md:w-3/4">
-            {/* Sort Options */}
             <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
               <p className="text-gray-600 mb-2 sm:mb-0">
                 Mostrando {filteredProducts.length} productos
@@ -285,7 +243,7 @@ const ProductsPage = () => {
                   id="sort"
                   value={sortOption}
                   onChange={(e) => setSortOption(e.target.value)}
-                  className="border border-gray-300 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-red-500"
+                  className="border border-gray-300 rounded-md py-1 px-2"
                 >
                   <option value="relevance">Relevancia</option>
                   <option value="priceLow">Precio: menor a mayor</option>
@@ -312,7 +270,7 @@ const ProductsPage = () => {
                 </p>
                 <button
                   onClick={handleResetFilters}
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
                 >
                   Limpiar filtros
                 </button>
