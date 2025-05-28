@@ -54,7 +54,7 @@ const CheckoutPage = () => {
 
       try {
         // Asegúrate de que esta URL es la correcta para tu backend de Laravel
-        const response = await fetch('http://127.0.0.1:8000/api/create-preference', {
+        const response = await fetch('http://127.0.0.1:8000/api/v1/create-preference', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
