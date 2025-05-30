@@ -4,7 +4,6 @@ import { mockProducts } from '../data/mockData';
 import { useShoppingCart } from '../contexts/ShoppingCartContext';
 import { useAuth } from '../contexts/AuthContext';
 import ProductReview from '../components/ProductReview';
-import ReviewsList from '../components/ReviewsList';
 
 const ProductDetailPage = () => {
   const { id } = useParams();
@@ -13,30 +12,18 @@ const ProductDetailPage = () => {
   const { user } = useAuth();
   const [selectedImage, setSelectedImage] = useState(product ? product.images[0] : '');
   const [quantity, setQuantity] = useState(1);
-  const [reviews, setReviews] = useState(product ? product.reviews : []);
-  const [reviewToEdit, setReviewToEdit] = useState(null);
-  const [averageRating, setAverageRating] = useState(product ? product.averageRating : 0);
-
-  // Encuentra la reseña del usuario actual si existe
-  const userReview = user && reviews.find(review => review.userId === user.id);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    
-    // Inicializar reviews y rating del producto
-    if (product) {
-      setReviews(product.reviews);
-      setAverageRating(product.averageRating);
-    }
   }, [id, product]);
 
   if (!product) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold mb-8">Product Not Found</h1>
+          <h1 className="text-3xl font-bold mb-8">Producto no encontrado</h1>
           <div className="bg-white rounded-lg shadow-lg p-6">
-            <p className="text-gray-600">No product found with id {id}.</p>
+            <p className="text-gray-600">No se encontró ningún producto con id {id}.</p>
           </div>
         </div>
       </div>
@@ -50,42 +37,6 @@ const ProductDetailPage = () => {
   const handleQuantityChange = (e) => {
     const value = Math.max(1, Math.min(product.stock, Number(e.target.value)));
     setQuantity(value);
-  };
-
-  // Manejador para enviar una nueva reseña o actualizar una existente
-  const handleReviewSubmit = (reviewData, isEditing) => {
-    let updatedReviews;
-    
-    if (isEditing) {
-      // Actualizar una reseña existente
-      updatedReviews = reviews.map(review => 
-        review.id === reviewData.id ? reviewData : review
-      );
-    } else {
-      // Agregar una nueva reseña
-      updatedReviews = [...reviews, reviewData];
-    }
-    
-    setReviews(updatedReviews);
-    
-    // Calcular nuevo promedio
-    const newAverageRating = updatedReviews.reduce((acc, review) => acc + review.rating, 0) / updatedReviews.length;
-    setAverageRating(newAverageRating.toFixed(1));
-    
-    // Limpiar el estado de edición
-    setReviewToEdit(null);
-  };
-
-  // Manejador para editar una reseña
-  const handleEditReview = (review) => {
-    setReviewToEdit(review);
-    // Desplazar la vista hacia el formulario de reseña
-    setTimeout(() => {
-      const reviewForm = document.getElementById('review-form');
-      if (reviewForm) {
-        reviewForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 100);
   };
 
   return (
@@ -218,38 +169,10 @@ const ProductDetailPage = () => {
               ))}
             </ul>
           </div>
-          {/* Average Rating y Reviews */}
-          <div className="flex-1 md:border-l md:pl-8 border-gray-200">
-            <div className="mb-2">
-              <span className="font-semibold text-lg text-gray-800">Promedio:</span> <span className="text-yellow-500 font-bold">{averageRating} / 5</span>
-            </div>
-            <div>
-              <span className="font-semibold text-lg text-gray-800 mb-4 block">Reseñas:</span>
-              <ReviewsList reviews={reviews} onEditReview={handleEditReview} />
-              
-              {/* Sección para agregar o editar reseña */}
-              <div id="review-form" className="mt-8">
-                {!userReview || reviewToEdit ? (
-                  <ProductReview 
-                    productId={product.id} 
-                    existingReview={reviewToEdit || userReview}
-                    onReviewSubmit={handleReviewSubmit}
-                  />
-                ) : (
-                  <div className="mt-4 bg-gray-50 rounded-lg p-4 text-center">
-                    <p className="text-gray-700">Ya has dejado una reseña para este producto.</p>
-                    <button
-                      onClick={() => handleEditReview(userReview)}
-                      className="mt-2 text-red-600 hover:text-red-800 font-medium"
-                    >
-                      Editar mi reseña
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
+        
+        {/* Sistema de comentarios conectado a la API */}
+        <ProductReview productId={product.id} />
       </div>
       {/* Productos relacionados */}
       <div className="mt-16">
