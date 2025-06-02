@@ -8,62 +8,51 @@ const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState('personal');
   const [isEditing, setIsEditing] = useState(false);
   const [userData, setUserData] = useState({
-    firstName: user?.firstName || 'John',
-    lastName: user?.lastName || 'Doe',
-    email: user?.email || 'john.doe@example.com',
-    phone: user?.phone || '555-123-4567',
-    address: user?.address || '123 Strawberry Lane',
-    city: user?.city || 'Berry City',
-    state: user?.state || 'Frutalia',
-    zipCode: user?.zipCode || '12345'
+    firstName: '', // Initialize as empty, will be populated from user context
+    lastName: '',  // Initialize as empty
+    email: '',     // Initialize as empty
+    phone: '',     // Initialize as empty
+    address: '', // Default mock
+    city: '',           // Default mock
+    state: '',            // Default mock
+    zipCode: ''              // Default mock
   });
 
-  // Lista de pedidos - usar órdenes del usuario si existen, o usar datos mock
+  // Effect to synchronize user data from context to local state
+  useEffect(() => {
+    if (user) {
+      setUserData(prevUserData => ({
+        ...prevUserData, // Preserve existing address defaults unless overridden by user object
+        firstName: user.nombre || '',
+        lastName: user.apellidos || '',
+        email: user.email || '',
+        phone: user.telefono || '',
+        // If your user object from API might contain address fields:
+        address: user.direccion || '', // Assuming 'direccion' from API
+        city: user.ciudad || '', // Assuming 'ciudad' from API
+        state: user.estado || '', // Assuming 'estado' from API
+        zipCode: user.codigo_postal || '', // Assuming 'codigo_postal' from API
+      }));
+    } else {
+      // Optional: Reset form if user logs out or is not available
+      setUserData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: ''
+      });
+    }
+  }, [user]); // Re-run this effect when the user object from AuthContext changes
+
+  // Lista de pedidos - usar órdenes del usuario si existen
   const userOrders = user?.orders || [];
-  const mockOrders = userOrders.length > 0 ? userOrders : [
-    {
-      id: 'ORD-1234-5678',
-      date: '12/04/2025',
-      total: 49.98,
-      status: 'Entregado',
-      items: [
-        { name: 'Fresas Premium 1kg', price: 12.99, quantity: 2 },
-        { name: 'Mermelada de Fresa 250g', price: 7.99, quantity: 3 }
-      ]
-    },
-    {
-      id: 'ORD-8765-4321',
-      date: '28/03/2025',
-      total: 34.97,
-      status: 'Procesando',
-      items: [
-        { name: 'Mix de Fresas Orgánicas 500g', price: 9.99, quantity: 1 },
-        { name: 'Cesta de Regalo Deluxe', price: 24.99, quantity: 1 }
-      ]
-    }
-  ];
   
-  // Direcciones guardadas
-  const savedAddresses = [
-    {
-      id: 1,
-      name: 'Casa',
-      address: '123 Strawberry Lane',
-      city: 'Berry City',
-      state: 'Frutalia',
-      zipCode: '12345',
-      isDefault: true
-    },
-    {
-      id: 2,
-      name: 'Trabajo',
-      address: '456 Office Plaza',
-      city: 'Berry City',
-      state: 'Frutalia',
-      zipCode: '12346',
-      isDefault: false
-    }
-  ];
+  // Direcciones guardadas -  Ideally, these would also come from the user object or a separate API call
+  const savedAddresses = user?.addresses || [];
   
 
 
@@ -312,9 +301,9 @@ const ProfilePage = () => {
                     <h2 className="text-xl font-semibold text-gray-900">Mis Pedidos</h2>
                   </div>
                   
-                  {mockOrders.length > 0 ? (
+                  {userOrders.length > 0 ? (
                     <div className="space-y-6">
-                      {mockOrders.map(order => (
+                      {userOrders.map(order => (
                         <div key={order.id} className="border rounded-lg overflow-hidden">
                           <div className="bg-gray-50 p-4 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
                             <div>

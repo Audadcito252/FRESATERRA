@@ -36,12 +36,12 @@ export const AuthProvider = ({ children }) => {
     if (token && (!storedUser || storedUser === 'undefined')) {
       const fetchUser = async () => {
         try {
-          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          const response = await api.get('/api/me');
+          // api.defaults.headers.common['Authorization'] = `Bearer ${token}`; // Handled by api.js
+          const response = await api.get('/me'); // Changed from /api/me
 
-          if (response.data && response.data.user) {
-            setUser(response.data.user);
-            localStorage.setItem('user', JSON.stringify(response.data.user));
+          if (response && response.user) { // Adjusted to expect response.user directly based on fetch wrapper
+            setUser(response.user);
+            localStorage.setItem('user', JSON.stringify(response.user));
           } else {
             // Si no se puede obtener el usuario, limpiar localStorage
             localStorage.removeItem('token');
@@ -123,24 +123,21 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setIsLoading(true);
     try {
-      const response = await api.post('/api/login', { email, password });
-      console.log('Login response:', response.data); // Para depuración
+      const response = await api.post('/login', { email, password }); // Changed from /api/login
+      console.log('Login response:', response); // Para depuración
 
       // Verificar que la respuesta tenga el formato esperado
-      if (response.data && response.data.token) {
+      if (response && response.token) {
         // Si solo tenemos token pero no user en la respuesta
-        if (!response.data.user) {
+        if (!response.user) {
           // Hacer una petición adicional para obtener los datos del usuario
-          const userResponse = await api.get('/api/me', {
-            headers: {
-              'Authorization': `Bearer ${response.data.token}`
-            }
-          });
+          // Headers are handled by api.js
+          const userResponse = await api.get('/me'); // Changed from /api/me
 
           // Estructura esperada: { user: {...} }
-          if (userResponse.data && userResponse.data.user) {
-            const token = response.data.token;
-            const user = userResponse.data.user;
+          if (userResponse && userResponse.user) {
+            const token = response.token;
+            const user = userResponse.user;
 
             // Guarda el token
             localStorage.setItem('token', token);
@@ -158,7 +155,7 @@ export const AuthProvider = ({ children }) => {
           }
         } else {
           // Tenemos tanto token como user en la respuesta
-          const { token, user } = response.data;
+          const { token, user } = response;
 
           // Verificar que el usuario no es undefined antes de guardarlo
           if (user) {
@@ -256,35 +253,36 @@ export const AuthProvider = ({ children }) => {
   //   }
   // };
 
-  const register = async (email, password, firstname, lastName) => {
+  const register = async (email, password, firstname, lastName, telefono) => {
     setIsLoading(true);
     try {
-      // Crear el nombre completo a partir de firstName y lastName
-      const name = `${firstname} ${lastName}`;
-
       // Llamada a la API para registrar el usuario
-      const response = await api.post('/api/register', {
-        name,
+      const response = await api.post('/register', { 
+        name: firstname, 
+        apellidos: lastName, 
         email,
         password,
-        password_confirmation: password // Tu backend requiere confirmación de contraseña
+        password_confirmation: password, 
+        telefono,
+        role: 'client' // Add role to the payload with value '2'
       });
 
-      console.log('Register response:', response.data);
+      console.log('Register response:', response); // Changed from response.data
 
       // Si el registro es exitoso y el backend devuelve un token
-      if (response.data && response.data.user) {
-        const user = response.data.user;
+      if (response && response.user) { // Changed from response.data
+        const user = response.user; // Changed from response.data.user
 
         // Si el registro también incluye un token de autenticación
-        if (response.data.token) {
-          const token = response.data.token;
+        if (response.token) { // Changed from response.data.token
+          const token = response.token; // Changed from response.data.token
 
           // Guarda el token
           localStorage.setItem('token', token);
 
           // Configura el token para futuras peticiones
-          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          // This is now handled by api.js, but if you were to set it manually for some reason:
+          // api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         }
 
         // Guardar usuario en localStorage como string JSON
@@ -296,17 +294,17 @@ export const AuthProvider = ({ children }) => {
         return user;
       } else {
         // Si solo devuelve usuario sin token, necesitarás hacer login después
-        return response.data;
+        return response; // Changed from response.data
       }
     } catch (error) {
       console.error('Registration failed:', error);
 
       // Manejar errores de validación
-      if (error.response?.status === 422) {
+      if (error.status === 422) { // Changed from error.response?.status
         throw new Error(
-          Object.values(error.response.data.error)
+          Object.values(error.data.error || error.data.errors || {}) // Changed from error.response.data.error and added fallback for errors key
             .flat()
-            .join('\n')
+            .join('\\n')
         );
       }
 
@@ -333,11 +331,11 @@ export const AuthProvider = ({ children }) => {
       // Solo intentar hacer logout en el servidor si hay un token
       const token = localStorage.getItem('token');
       if (token) {
-        // Asegurarse de que el token esté en los headers
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        // Asegurarse de que el token esté en los headers - Handled by api.js
+        // api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
         // Llamar al endpoint de logout del servidor
-        await api.post('/api/logout');
+        await api.post('/logout'); // Changed from /api/logout
         console.log('Logout exitoso en el servidor');
       }
     } catch (error) {
@@ -366,13 +364,13 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(true);
     try {
       // Llamada a la API para solicitar el restablecimiento de contraseña
-      const response = await api.post('/api/password/email', { email });
+      const response = await api.post('/password/email', { email }); // Changed from /api/password/email
 
-      console.log('Reset password response:', response.data);
+      console.log('Reset password response:', response);
 
       // Verificar si la solicitud fue exitosa
-      if (response.data && response.data.message) {
-        return response.data.message;
+      if (response && response.message) {
+        return response.message;
       }
 
       return 'Se ha enviado un enlace de restablecimiento a tu correo electrónico';
@@ -380,11 +378,11 @@ export const AuthProvider = ({ children }) => {
       console.error('Password reset request failed:', error);
 
       // Manejo específico de errores de validación
-      if (error.response?.status === 422) {
+      if (error.status === 422) { // Changed from error.response?.status
         throw new Error(
-          Object.values(error.response.data.error || error.response.data.errors || {})
+          Object.values(error.data.error || error.data.errors || {}) // Changed from error.response.data.error and added fallback for errors key
             .flat()
-            .join('\n')
+            .join('\\n')
         );
       }
 
@@ -416,11 +414,11 @@ export const AuthProvider = ({ children }) => {
       if (!token) {
         return { success: false, error: 'Debes iniciar sesión para actualizar tu perfil' };
       }
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      const response = await api.patch('/api/profile', userData);
-      console.log('Update profile response:', response.data);
-      if (response.data && response.data.user) {
-        const updatedUser = response.data.user;
+      // api.defaults.headers.common['Authorization'] = `Bearer ${token}`; // Handled by api.js
+      const response = await api.patch('/profile', userData); // Changed from /api/profile
+      console.log('Update profile response:', response);
+      if (response && response.user) {
+        const updatedUser = response.user;
         setUser(updatedUser);
         localStorage.setItem('user', JSON.stringify(updatedUser));
         return {
@@ -432,13 +430,13 @@ export const AuthProvider = ({ children }) => {
       return { success: false, error: 'La respuesta del servidor no incluyó los datos actualizados' };
     } catch (error) {
       console.error('Profile update failed:', error);
-      if (error.response?.status === 422) {
+      if (error.status === 422) {
         return {
           success: false,
-          error: Object.values(error.response.data.error || error.response.data.errors || {}).flat().join('\n')
+          error: Object.values(error.data.error || error.data.errors || {}).flat().join('\\n') // Changed from error.response.data.error
         };
       }
-      if (error.response?.status === 401) {
+      if (error.status === 401) { // Changed from error.response?.status
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setUser(null);

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useShoppingCart } from '../contexts/ShoppingCartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, CreditCard, Truck, CheckCircle2 } from 'lucide-react';
+import api from '../services/api';
 
 const CheckoutPage = () => {
   const { cartItems, cartTotal, clearCart } = useShoppingCart();
@@ -37,7 +38,6 @@ const CheckoutPage = () => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -53,44 +53,33 @@ const CheckoutPage = () => {
       }));
 
       try {
-        // Asegúrate de que esta URL es la correcta para tu backend de Laravel
-        const response = await fetch('http://127.0.0.1:8000/api/v1/create-preference', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            // Si tienes autenticación de API, añade el token aquí
-            // 'Authorization': `Bearer ${tuTokenDeAutenticacionApi}`,
-          },
-          body: JSON.stringify({ items: itemsForMercadoPago }),
-        });
+        // Usar el servicio API configurado
+        const response = await api.post('/create-preference', { items: itemsForMercadoPago });
 
         setIsSubmitting(false); // Detener el indicador de carga después de la respuesta
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('Error creating Mercado Pago preference:', errorData);
-          alert(`Error del servidor: ${errorData.message || 'No se pudo iniciar el pago con Mercado Pago.'}`);
-          return;
-        }
-
-        const preference = await response.json();
-
-        if (preference.init_point) {
-          window.location.href = preference.init_point;
-        } else if (preference.sandbox_init_point) { // Para entorno de pruebas
-          window.location.href = preference.sandbox_init_point;
+        if (response.init_point) {
+          window.location.href = response.init_point;
+        } else if (response.sandbox_init_point) { // Para entorno de pruebas
+          window.location.href = response.sandbox_init_point;
         } else {
           console.error('No init_point received from Mercado Pago');
           alert('Error: No se recibió el punto de inicio para el pago de Mercado Pago.');
         }
         // No se limpia el carrito ni se avanza al paso 3 aquí.
         // Eso ocurrirá después de la redirección de Mercado Pago.
-
       } catch (error) {
         setIsSubmitting(false);
-        console.error('Network error or other issue with Mercado Pago:', error);
-        alert('Error de conexión al intentar procesar el pago con Mercado Pago.');
+        console.error('Error creating Mercado Pago preference:', error);
+        
+        // Manejar el error con más detalle
+        if (error.data) {
+          console.error('Error details:', error.data);
+          alert(`Error del servidor: ${error.data.error || error.message || 'No se pudo iniciar el pago con Mercado Pago.'}`);
+        } else {
+          console.error('Network error or other issue with Mercado Pago:', error);
+          alert('Error de conexión al intentar procesar el pago con Mercado Pago.');
+        }
       }
 
     } else {

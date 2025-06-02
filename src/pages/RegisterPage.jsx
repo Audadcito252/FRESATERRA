@@ -15,6 +15,7 @@ const RegisterPage = () => {
     firstName: '',
     lastName: '',
     email: '',
+    phone: '', // Add phone to errors state
     password: '',
     confirmPassword: ''
   });
@@ -62,6 +63,10 @@ const RegisterPage = () => {
       case 'email':
         return !value || !value.includes('@') || !value.includes('.') 
           ? 'Por favor ingresa un correo electrónico válido' : '';
+      case 'phone': // Add phone validation
+        if (!value) return 'El teléfono es obligatorio';
+        const phoneRegex = /^9\d{8}$/; // Peruvian phone: 9 digits, starts with 9
+        return !phoneRegex.test(value) ? 'El número de teléfono no es válido (ej: 987654321)' : '';
       case 'password':
         const hasLength = value.length >= 8;
         const hasUpperCase = /[A-Z]/.test(value);
@@ -118,8 +123,10 @@ const RegisterPage = () => {
       firstName: validateField('firstName', formData.firstName),
       lastName: validateField('lastName', formData.lastName),
       email: validateField('email', formData.email),
+      phone: validateField('phone', formData.phone), // Validate phone
       password: validateField('password', formData.password),
-      confirmPassword: validateField('confirmPassword', formData.confirmPassword)
+      confirmPassword: validateField('confirmPassword', formData.confirmPassword),
+      
     };
 
     setErrors(newErrors);
@@ -131,8 +138,8 @@ const RegisterPage = () => {
 
     setIsLoading(true);
     try {
-      // Pasar el nombre y apellido como parámetros separados a register
-      await register(formData.email, formData.password, formData.firstName, formData.lastName);
+      // Pasar el nombre, apellido y teléfono como parámetros separados a register
+      await register(formData.email, formData.password, formData.firstName, formData.lastName, formData.phone);
       toast.success('¡Registro exitoso!');
       navigate('/');
     } catch (error) {
@@ -215,7 +222,7 @@ const RegisterPage = () => {
 
             <div className="form-group mb-5">
               <label htmlFor="phone" className="block text-black mb-2 font-medium">
-                Teléfono (opcional)
+                Teléfono
               </label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -223,12 +230,16 @@ const RegisterPage = () => {
                   id="phone"
                   name="phone"
                   type="tel"
+                  // required // Será obligatorio después
                   className="w-full p-3 pl-10 border border-[#ddd] rounded text-base focus:outline-none focus:border-[#EC0617] transition-all"
-                  placeholder="Tu número telefónico"
+                  placeholder="987654321"
                   value={formData.phone}
                   onChange={handleChange}
                 />
               </div>
+              {errors.phone && (
+                <p className="error-message text-[#EC0617] text-sm mt-1">{errors.phone}</p>
+              )}
             </div>
 
             <div className="form-group mb-5">
