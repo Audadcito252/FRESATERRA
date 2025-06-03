@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react'; // Ya importado para el ícono de la flecha
-import { Star } from 'lucide-react'; // Importamos el ícono de estrella desde Lucide
+import { ChevronRight, Star, Truck } from 'lucide-react'; // Iconos necesarios
 import ProductCard from '../components/ProductCard';
 import { mockProducts, mockCategories } from '../data/mockData';
 
@@ -77,7 +76,43 @@ const HomePage = () => {
               </Link>
             ))}
           </div>
+        </div>      </section>      {/* Free Shipping Offer Section */}
+      <section className="py-12 bg-gradient-to-r from-red-600 to-red-700 text-white relative overflow-hidden">
+        <div className="absolute inset-0 bg-black bg-opacity-10"></div>
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="flex flex-col lg:flex-row items-center justify-between">
+            <div className="lg:w-2/3 text-center lg:text-left mb-6 lg:mb-0">
+              <div className="flex items-center justify-center lg:justify-start mb-4">
+                <Truck size={48} className="text-white mr-4" />
+                <h2 className="text-3xl lg:text-4xl font-bold">¡ENVÍO GRATIS!</h2>
+              </div>
+              <p className="text-xl lg:text-2xl mb-2">
+                En paquetes de fresas con compras desde <span className="font-bold text-yellow-300">S/ 30</span>
+              </p>
+              <p className="text-lg opacity-90">
+                Disfruta de nuestras fresas frescas con envío gratuito a domicilio
+              </p>
+            </div>
+            <div className="lg:w-1/3 text-center">
+              <div className="bg-white bg-opacity-20 rounded-full p-8 inline-block backdrop-blur-sm">
+                <div className="text-6xl font-bold text-yellow-300">S/ 30</div>
+                <div className="text-lg font-medium">Compra mínima</div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-8 text-center">
+            <Link 
+              to="/products?category=fresh-strawberry-packs" 
+              className="inline-block bg-white hover:bg-gray-100 text-red-600 font-bold px-8 py-4 rounded-full text-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
+            >
+              ¡Comprar paquetes de fresas ahora!
+            </Link>
+          </div>
         </div>
+        
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white bg-opacity-10 rounded-full -translate-y-16 translate-x-16"></div>
+        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white bg-opacity-10 rounded-full translate-y-12 -translate-x-12"></div>
       </section>
 
       {/* Featured Products Section */}
@@ -146,14 +181,27 @@ const HomePage = () => {
             ))}
           </div>
         </div>
-      </section>
-
-      {/* Testimonials Section */}
+      </section>      {/* Testimonials Section */}
       <section className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12">Lo que opinan nuestros clientes</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[1, 2, 3].map((i) => (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">            {[
+              {
+                name: "María García",
+                avatar: "https://elperuano.pe/fotografia/thumbnail/2021/09/02/000130694M.jpg",
+                comment: "Las fresas de FRESATERRA son increíblemente frescas y dulces. ¡A mi familia le encantan! La entrega fue rápida y el empaque excelente."
+              },
+              {
+                name: "Carlos Mendoza",
+                avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face&auto=format",
+                comment: "Excelente calidad y sabor auténtico. Desde que probé estas fresas no compro en otro lugar. Totalmente recomendadas para toda la familia."
+              },
+              {
+                name: "Ana Rodríguez",
+                avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face&auto=format",
+                comment: "Me encanta la frescura y el dulzor natural de estas fresas. Son perfectas para mis postres y batidos. ¡Seguiré comprando aquí!"
+              }
+            ].map((testimonial, i) => (
               <div key={i} className="bg-white p-6 rounded-lg shadow-md">
                 <div className="flex items-center mb-4">
                   {[...Array(5)].map((_, j) => (
@@ -161,12 +209,15 @@ const HomePage = () => {
                   ))}
                 </div>
                 <p className="text-gray-700 mb-4">
-                  "Las fresas de FRESATERRA son increíblemente frescas y dulces. ¡A mi familia le encantan! La entrega fue rápida y el empaque excelente."
-                </p>
-                <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-full bg-gray-300 mr-3"></div>
+                  "{testimonial.comment}"
+                </p>                <div className="flex items-center">
+                  <img 
+                    src={testimonial.avatar} 
+                    alt={testimonial.name}
+                    className="w-10 h-10 rounded-full object-cover mr-3"
+                  />
                   <div>
-                    <p className="font-medium">Cliente {i}</p>
+                    <p className="font-medium">{testimonial.name}</p>
                     <p className="text-sm text-gray-500">Comprador verificado</p>
                   </div>
                 </div>
