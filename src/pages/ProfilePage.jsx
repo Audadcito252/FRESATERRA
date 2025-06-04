@@ -3,6 +3,8 @@ import { User, MapPin, Package, CreditCard, Settings, ChevronRight, Edit, Plus, 
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import useAddresses from '../hooks/useAddresses';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const ProfilePage = () => {
   const { user, updateProfile, changePassword, deactivateAccount, logout } = useAuth();
@@ -328,9 +330,10 @@ const ProfilePage = () => {
 
   return (
     <div className="pt-32 md:pt-40 pb-16 bg-gradient-to-br from-gray-100 via-white to-gray-200">
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
       <div className="container mx-auto px-4 max-w-6xl">
         <h1 className="text-3xl font-bold mb-6 text-gray-900">Mi Perfil</h1>
-        
+
         <div className="flex flex-col md:flex-row gap-6">
           {/* Sidebar / Navigation */}
           <div className="md:w-1/4">
@@ -343,11 +346,11 @@ const ProfilePage = () => {
                   <p className="text-sm text-gray-500">{userData.email}</p>
                 </div>
               </div>
-              
+
               <nav className="mt-4">
                 <ul className="space-y-1">
                   <li>
-                    <button 
+                    <button
                       onClick={() => setActiveTab('personal')}
                       className={`flex items-center w-full px-4 py-3 rounded-md ${activeTab === 'personal' ? 'bg-red-50 text-red-600' : 'text-gray-700 hover:bg-gray-50'}`}
                     >
@@ -369,7 +372,7 @@ const ProfilePage = () => {
                     </button>
                   </li>
                   <li>
-                    <button 
+                    <button
                       onClick={() => setActiveTab('orders')}
                       className={`flex items-center w-full px-4 py-3 rounded-md ${activeTab === 'orders' ? 'bg-red-50 text-red-600' : 'text-gray-700 hover:bg-gray-50'}`}
                     >
@@ -379,7 +382,7 @@ const ProfilePage = () => {
                   </li>
 
                   <li>
-                    <button 
+                    <button
                       onClick={() => setActiveTab('settings')}
                       className={`flex items-center w-full px-4 py-3 rounded-md ${activeTab === 'settings' ? 'bg-red-50 text-red-600' : 'text-gray-700 hover:bg-gray-50'}`}
                     >
@@ -389,9 +392,9 @@ const ProfilePage = () => {
                   </li>
                 </ul>
               </nav>
-              
+
               <div className="mt-6 pt-6 border-t">
-                <button 
+                <button
                   onClick={logout}
                   className="w-full py-2 text-center text-red-600 hover:text-red-800 transition-colors"
                 >
@@ -400,7 +403,7 @@ const ProfilePage = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Main Content Area */}
           <div className="md:w-3/4">
             <div className="bg-white rounded-lg shadow-sm">              {/* Personal Information */}
@@ -422,8 +425,8 @@ const ProfilePage = () => {
                   <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-gray-900">Información Personal</h2>
                     {!isEditing && (
-                      <button 
-                        onClick={() => setIsEditing(true)} 
+                      <button
+                        onClick={() => setIsEditing(true)}
                         className="flex items-center text-red-600 hover:text-red-800 transition-colors"
                         disabled={isUpdating}
                       >
@@ -432,7 +435,7 @@ const ProfilePage = () => {
                       </button>
                     )}
                   </div>
-                  
+
                   {isEditing ? (
                     // Edit mode
                     <div className="space-y-6">                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1190,8 +1193,7 @@ const ProfilePage = () => {
                                 Para reactivarla deberás contactar al soporte técnico.
                               </p>
                             </div>
-                            
-                            <div className="flex space-x-3">
+                              <div className="flex space-x-3">
                               <button
                                 type="button"
                                 onClick={() => {
