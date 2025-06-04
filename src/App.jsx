@@ -25,6 +25,7 @@ import RegisterPage from './pages/RegisterPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import NotFoundPage from './pages/NotFoundPage';
 import AboutPage from './pages/AboutPage';
+import NotificationsPage from './pages/NotificationsPage';
 
 function App() {
   return (
@@ -42,6 +43,7 @@ function App() {
               <Route path="checkout" element={<CheckoutPage />} />
               <Route path="order-confirmation/:id" element={<OrderConfirmationPage />} />
               <Route path="profile" element={<ProfilePage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
               <Route path="orders" element={<OrdersPage />} />
               <Route path="login" element={<LoginPage />} />
               <Route path="register" element={<RegisterPage />} />
