@@ -9,21 +9,24 @@ const CheckoutPage = () => {
   const { cartItems, cartTotal, clearCart } = useShoppingCart();
   const { user, updateProfile, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  
-  const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
     email: user?.email || '',
-    address: user?.address || '',
-    city: user?.city || '',
-    state: user?.state || '',
-    zipCode: user?.zipCode || '',
     phone: user?.phone || '',
-    paymentMethod: 'credit-card'
+    paymentMethod: 'mercado-pago'
   });
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderId, setOrderId] = useState('');
+  const [addressOption, setAddressOption] = useState('profile'); // 'profile' o 'new'
+  const [newAddress, setNewAddress] = useState({
+    street: '',
+    number: '',
+    district: '',
+    city: '',
+    reference: '',
+  });
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -37,8 +40,7 @@ const CheckoutPage = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-  };
-  const handleSubmit = async (e) => {
+  };  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     
@@ -47,10 +49,19 @@ const CheckoutPage = () => {
       const itemsForMercadoPago = cartItems.map(item => ({
         title: item.product.name,
         quantity: item.quantity,
-        unit_price: parseFloat(item.product.salePrice || item.product.price),
-        description: item.product.description || undefined, // Asegúrate que tu backend maneje 'undefined' o no lo envíe
-        // currency_id: 'PEN' // El backend ya debería manejar esto o puedes añadirlo si es necesario
+        unit_price: Math.round(parseFloat(item.product.salePrice || item.product.price)),
+        description: item.product.description || undefined,
       }));
+
+      // Agregar el costo de envío como un item adicional si no es gratis
+      if (shippingCost > 0) {
+        itemsForMercadoPago.push({
+          title: "Costo de envío",
+          quantity: 1,
+          unit_price: Math.round(shippingCost),
+          description: "Envío a domicilio"
+        });
+      }
 
       try {
         // Usar el servicio API configurado
@@ -91,13 +102,23 @@ const CheckoutPage = () => {
         setCurrentStep(currentStep + 1);
       }, 1500); // Simulación de carga
     }
-  };
+  };  // Calcular costos adicionales
+  // OFERTA: Envío gratis para cualquier combinación de paquetes de fresas (categoryId: '1') si el subtotal de esos productos es >= 30
+  const strawberryPackCategoryId = '1';
+  
+  // Calcular el subtotal solo de los paquetes de fresas (categoryId: '1')
+  const strawberryPacksSubtotal = cartItems
+    .filter(item => item.product.categoryId === strawberryPackCategoryId)
+    .reduce((total, item) => total + (item.product.salePrice || item.product.price) * item.quantity, 0);
+  
+  // Verificar si aplica la oferta de envío gratis (subtotal de paquetes >= S/ 30)
+  const hasStrawberryPackOffer = strawberryPacksSubtotal >= 30;
 
-  // Calcular costos adicionales
-  const shippingCost = 5.99;
-  const taxRate = 0.07;
-  const taxAmount = cartTotal * taxRate;
-  const orderTotal = cartTotal + shippingCost + taxAmount;
+  // Costo de envío: gratis si aplica la oferta, sino S/ 5.99
+  const shippingCost = hasStrawberryPackOffer ? 0 : 5.99;
+  
+  // Total final: subtotal de todos los productos + envío (sin impuestos según requerimientos)
+  const orderTotal = cartTotal + shippingCost;
 
   return (
     <div className="min-h-screen pt-24 pb-12 bg-gradient-to-br from-gray-100 via-white to-gray-200">
@@ -184,85 +205,122 @@ const CheckoutPage = () => {
                       />
                     </div>
                   </div>
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                      placeholder="tu@correo.com"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                      placeholder="123-456-7890"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
-                    <input
-                      type="text"
-                      id="address"
-                      name="address"
-                      value={formData.address}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                      placeholder="Calle, número, colonia"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div>
-                      <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                       <input
-                        type="text"
-                        id="city"
-                        name="city"
-                        value={formData.city}
+                        type="email"
+                        id="email"
+                        name="email"
+                        value={formData.email}
                         onChange={handleInputChange}
                         required
                         className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                        placeholder="Ciudad"
+                        placeholder="tu@correo.com"
                       />
                     </div>
                     <div>
-                      <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
                       <input
-                        type="text"
-                        id="state"
-                        name="state"
-                        value={formData.state}
+                        type="tel"
+                        id="phone"
+                        name="phone"
+                        value={formData.phone}
                         onChange={handleInputChange}
                         required
                         className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                        placeholder="Estado"
+                        placeholder="123-456-7890"
                       />
                     </div>
-                    <div>
-                      <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700 mb-1">Código Postal</label>
-                      <input
-                        type="text"
-                        id="zipCode"
-                        name="zipCode"
-                        value={formData.zipCode}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                        placeholder="12345"
-                      />
-                    </div>
+                  </div>
+                  {/* Dirección */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Dirección de entrega</label>
+                    <select
+                      className="w-full p-3 border border-gray-300 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      value={addressOption}
+                      onChange={e => setAddressOption(e.target.value)}
+                    >
+                      <option value="profile">Usar mi dirección predeterminada</option>
+                      <option value="new">Ingresar nueva dirección</option>
+                    </select>
+                    {addressOption === 'profile' ? (
+                      <div className="bg-gray-50 p-3 rounded-lg border text-gray-700">
+                        <div><span className="font-medium">Calle:</span> {user?.address?.street || ''}</div>
+                        <div><span className="font-medium">Número:</span> {user?.address?.number || ''}</div>
+                        <div><span className="font-medium">Distrito:</span> {user?.address?.district || ''}</div>
+                        <div><span className="font-medium">Ciudad:</span> {user?.address?.city || ''}</div>
+                        <div><span className="font-medium">Referencia:</span> {user?.address?.reference || ''}</div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-2">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Calle</label>
+                          <input
+                            type="text"
+                            name="street"
+                            value={newAddress.street}
+                            onChange={e => setNewAddress({ ...newAddress, street: e.target.value })}
+                            required
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            placeholder="Ej: Av. Primavera"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Número</label>
+                          <input
+                            type="text"
+                            name="number"
+                            value={newAddress.number}
+                            onChange={e => setNewAddress({ ...newAddress, number: e.target.value })}
+                            required
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            placeholder="Ej: 123"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Distrito</label>
+                          <select
+                            name="district"
+                            value={newAddress.district}
+                            onChange={e => setNewAddress({ ...newAddress, district: e.target.value })}
+                            required
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          >
+                            <option value="">Selecciona un distrito</option>
+                            <option value="Santiago">Santiago</option>
+                            <option value="San Jeronimo">San Jeronimo</option>
+                            <option value="Cusco">Cusco</option>
+                            <option value="San Sebastian">San Sebastian</option>
+                            <option value="Wanchaq">Wanchaq</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+                          <input
+                            type="text"
+                            name="city"
+                            value={newAddress.city}
+                            onChange={e => setNewAddress({ ...newAddress, city: e.target.value })}
+                            required
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            placeholder="Ej: Lima"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Referencia</label>
+                          <input
+                            type="text"
+                            name="reference"
+                            value={newAddress.reference}
+                            onChange={e => setNewAddress({ ...newAddress, reference: e.target.value })}
+                            required
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            placeholder="Ej: Puerta marrón, frente a parque"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="pt-4 flex justify-end">
                     <button
@@ -275,88 +333,96 @@ const CheckoutPage = () => {
                   </div>
                 </form>
               </div>
-            )}
-
-            {currentStep === 2 && (
+            )}            {currentStep === 2 && (
               <div className="bg-white p-6 rounded-xl shadow-md">
                 <h2 className="text-xl font-semibold mb-6 flex items-center">
                   <CreditCard className="mr-3 text-green-700" size={22} />
                   Información de pago
                 </h2>
                 <form className="space-y-5" onSubmit={handleSubmit}>
-                  <div className="space-y-4 mb-6">
-                    <div className="flex items-center">
-                      <input 
-                        id="credit-card" 
-                        name="paymentMethod" 
-                        type="radio"
-                        value="credit-card"
-                        checked={formData.paymentMethod === 'credit-card'}
-                        onChange={handleInputChange} 
-                        className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300"
-                      />
-                      <label htmlFor="credit-card" className="ml-3 block text-sm font-medium text-gray-700">
-                        Tarjeta de crédito/débito
-                      </label>
+                  {/* Mercado Pago como única opción */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Método de pago principal */}
+                    <div>
+                      <div className="mb-4">
+                        <div className="flex items-center p-4 border-2 border-blue-500 rounded-lg bg-blue-50">
+                          <input 
+                            id="mercado-pago" 
+                            name="paymentMethod" 
+                            type="radio"
+                            value="mercado-pago"
+                            checked={formData.paymentMethod === 'mercado-pago'}
+                            onChange={handleInputChange} 
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                          />
+                          <label htmlFor="mercado-pago" className="ml-3 flex items-center">
+                            <img 
+                              src="/img/Logos Mercado Pago/Uso digital - RGB/PNGs/MP_RGB_HANDSHAKE_color-azul_hori-izq.png" 
+                              alt="Mercado Pago" 
+                              className="h-8 w-auto"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'inline';
+                              }}
+                            />
+                            <span className="hidden text-lg font-semibold text-blue-600">Mercado Pago</span>
+                          </label>
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        <p className="mb-2">Serás redirigido a Mercado Pago para completar tu pago de forma segura.</p>
+                        <p className="text-xs text-gray-500">Transacción 100% segura y protegida</p>
+                      </div>
                     </div>
-                    <div className="flex items-center">
-                      <input 
-                        id="paypal" 
-                        name="paymentMethod" 
-                        type="radio"
-                        value="paypal"
-                        checked={formData.paymentMethod === 'paypal'}
-                        onChange={handleInputChange} 
-                        className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300"
-                      />
-                      <label htmlFor="paypal" className="ml-3 block text-sm font-medium text-gray-700">
-                        PayPal
-                      </label>
+
+                    {/* Métodos incluidos (informativo) */}
+                    <div>
+                      <h3 className="text-md font-semibold text-gray-700 mb-3">Métodos de pago incluidos:</h3>
+                      <div className="space-y-3">
+                        {/* Yape */}
+                        <div className="flex items-center p-3 bg-purple-50 rounded-lg border border-purple-200">
+                          <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm mr-3">
+                            YAPE
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Yape</p>
+                            <p className="text-xs text-gray-500">Pago inmediato desde tu app</p>
+                          </div>
+                        </div>
+
+                        {/* Tarjetas */}
+                        <div className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="w-10 h-10 bg-gray-600 rounded-lg flex items-center justify-center text-white font-bold text-xs mr-3">
+                            💳
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Tarjetas de crédito/débito</p>
+                            <p className="text-xs text-gray-500">Visa, Mastercard, y más</p>
+                          </div>
+                        </div>                        {/* Transferencia bancaria */}
+                        <div className="flex items-center p-3 bg-green-50 rounded-lg border border-green-200">
+                          <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold text-xs mr-3">
+                            🏦
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Transferencia bancaria</p>
+                            <p className="text-xs text-gray-500">Transferencia directa a cuenta</p>
+                          </div>
+                        </div>
+
+                        {/* Otros */}
+                        <div className="flex items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xs mr-3">
+                            +
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Y muchos más</p>
+                            <p className="text-xs text-gray-500">Billeteras digitales y bancos</p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-
-                  {formData.paymentMethod === 'credit-card' && (
-                    <div className="space-y-5">
-                      <div>
-                        <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700 mb-1">Número de tarjeta</label>
-                        <input
-                          type="text"
-                          id="cardNumber"
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                          placeholder="1234 5678 9012 3456"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-5">
-                        <div>
-                          <label htmlFor="expiration" className="block text-sm font-medium text-gray-700 mb-1">Fecha de vencimiento</label>
-                          <input
-                            type="text"
-                            id="expiration"
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                            placeholder="MM/AA"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="cvv" className="block text-sm font-medium text-gray-700 mb-1">CVV</label>
-                          <input
-                            type="text"
-                            id="cvv"
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                            placeholder="123"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label htmlFor="cardHolder" className="block text-sm font-medium text-gray-700 mb-1">Nombre en la tarjeta</label>
-                        <input
-                          type="text"
-                          id="cardHolder"
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                          placeholder="JUAN PÉREZ"
-                        />
-                      </div>
-                    </div>
-                  )}
 
                   <div className="pt-4 flex justify-between">
                     <button
@@ -430,11 +496,7 @@ const CheckoutPage = () => {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-700">Envío</span>
-                  <span>S/ {shippingCost.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-700">Impuestos</span>
-                  <span>S/ {taxAmount.toFixed(2)}</span>
+                  <span>{hasStrawberryPackOffer ? <span className="text-green-600 font-semibold">GRATIS</span> : `S/ ${shippingCost.toFixed(2)}`}</span>
                 </div>
                 <div className="pt-2 mt-2 border-t">
                   <div className="flex justify-between font-bold">
@@ -453,6 +515,9 @@ const CheckoutPage = () => {
                     Todos los pedidos están sujetos a disponibilidad y se procesarán en un plazo de 1 hora.
                   </div>
                 </div>
+              )}
+              {hasStrawberryPackOffer && (
+                <div className="text-xs text-green-700 font-semibold mt-1">¡Envío gratis aplicado por tu compra de paquetes de fresas!</div>
               )}
             </div>
           </div>

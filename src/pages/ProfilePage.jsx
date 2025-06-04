@@ -4,57 +4,55 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const ProfilePage = () => {
-  const { user, updateProfile, logout } = useAuth();
+  const { user, updateProfile, changePassword, deactivateAccount, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('personal');
   const [isEditing, setIsEditing] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showDeactivateAccount, setShowDeactivateAccount] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState('');
+  const [updateError, setUpdateError] = useState('');
+  
+  // Solo los campos que maneja el backend actual
   const [userData, setUserData] = useState({
-    firstName: '', // Initialize as empty, will be populated from user context
-    lastName: '',  // Initialize as empty
-    email: '',     // Initialize as empty
-    phone: '',     // Initialize as empty
-    address: '', // Default mock
-    city: '',           // Default mock
-    state: '',            // Default mock
-    zipCode: ''              // Default mock
+    nombre: '',     // nombre del backend
+    apellidos: '',  // apellidos del backend  
+    email: '',      // email del backend
+    telefono: ''    // telefono del backend
   });
-
+  // Estado para cambio de contraseña
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  // Estado para desactivación de cuenta
+  const [deactivationPassword, setDeactivationPassword] = useState('');
+  const [confirmationText, setConfirmationText] = useState('');
   // Effect to synchronize user data from context to local state
   useEffect(() => {
     if (user) {
-      setUserData(prevUserData => ({
-        ...prevUserData, // Preserve existing address defaults unless overridden by user object
-        firstName: user.nombre || '',
-        lastName: user.apellidos || '',
-        email: user.email || '',
-        phone: user.telefono || '',
-        // If your user object from API might contain address fields:
-        address: user.direccion || '', // Assuming 'direccion' from API
-        city: user.ciudad || '', // Assuming 'ciudad' from API
-        state: user.estado || '', // Assuming 'estado' from API
-        zipCode: user.codigo_postal || '', // Assuming 'codigo_postal' from API
-      }));
-    } else {
-      // Optional: Reset form if user logs out or is not available
       setUserData({
-        firstName: '',
-        lastName: '',
+        nombre: user.nombre || '',
+        apellidos: user.apellidos || '',
+        email: user.email || '',
+        telefono: user.telefono || ''
+      });
+    } else {
+      // Reset form if user logs out or is not available
+      setUserData({
+        nombre: '',
+        apellidos: '',
         email: '',
-        phone: '',
-        address: '',
-        city: '',
-        state: '',
-        zipCode: ''
+        telefono: ''
       });
     }
   }, [user]); // Re-run this effect when the user object from AuthContext changes
-
   // Lista de pedidos - usar órdenes del usuario si existen
   const userOrders = user?.orders || [];
   
-  // Direcciones guardadas -  Ideally, these would also come from the user object or a separate API call
-  const savedAddresses = user?.addresses || [];
-  
-
+  // Por ahora no manejamos direcciones guardadas hasta implementar en backend
+  // const savedAddresses = user?.addresses || [];
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -67,10 +65,119 @@ const ProfilePage = () => {
       [name]: value
     });
   };
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData({
+      ...passwordData,
+      [name]: value
+    });
+  };
+  const handleDeactivateAccount = async (e) => {
+    e.preventDefault();
+    
+    if (!deactivationPassword.trim()) {
+      setUpdateError('Por favor, ingresa tu contraseña actual');
+      return;
+    }
 
-  const handleSaveProfile = () => {
-    updateProfile(userData);
-    setIsEditing(false);
+    if (!confirmationText.trim()) {
+      setUpdateError('Por favor, escribe la palabra "DESACTIVAR" para confirmar');
+      return;
+    }
+
+    if (confirmationText.trim() !== 'DESACTIVAR') {
+      setUpdateError('Debes escribir exactamente "DESACTIVAR" para confirmar');
+      return;
+    }
+
+    if (!window.confirm('¿Estás absolutamente seguro de que deseas desactivar tu cuenta? Esta acción requerirá contactar al soporte para reactivarla.')) {
+      return;
+    }
+
+    setIsUpdating(true);
+    setUpdateMessage('');
+    setUpdateError('');
+
+    try {
+      const result = await deactivateAccount(deactivationPassword);
+      
+      if (result.success) {
+        setUpdateMessage(result.message);
+        // Redirigir a la página de inicio después de 2 segundos
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      } else {
+        setUpdateError(result.error);
+      }
+    } catch (error) {
+      setUpdateError('Error al desactivar la cuenta');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    setIsUpdating(true);
+    setUpdateMessage('');
+    setUpdateError('');
+    
+    try {
+      const result = await updateProfile(userData);
+      
+      if (result.success) {
+        setUpdateMessage(result.message);
+        setIsEditing(false);
+        // Limpiar mensaje después de 3 segundos
+        setTimeout(() => setUpdateMessage(''), 3000);
+      } else {
+        setUpdateError(result.error);
+      }
+    } catch (error) {
+      setUpdateError('Error al actualizar el perfil');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setIsUpdating(true);
+    setUpdateMessage('');
+    setUpdateError('');
+
+    // Validación básica
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setUpdateError('Las contraseñas no coinciden');
+      setIsUpdating(false);
+      return;
+    }
+
+    try {
+      const result = await changePassword(
+        passwordData.currentPassword,
+        passwordData.newPassword,
+        passwordData.confirmPassword
+      );
+
+      if (result.success) {
+        setUpdateMessage(result.message);
+        setShowChangePassword(false);
+        setPasswordData({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+        // Limpiar mensaje después de 3 segundos
+        setTimeout(() => setUpdateMessage(''), 3000);
+      } else {
+        setUpdateError(result.error);
+      }
+    } catch (error) {
+      setUpdateError('Error al cambiar la contraseña');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   return (
@@ -85,9 +192,8 @@ const ProfilePage = () => {
               <div className="flex items-center space-x-4 p-4 border-b">
                 <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
                   <User size={24} className="text-red-600" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-lg text-gray-800">{userData.firstName} {userData.lastName}</h2>
+                </div>                <div>
+                  <h2 className="font-semibold text-lg text-gray-800">{userData.nombre} {userData.apellidos}</h2>
                   <p className="text-sm text-gray-500">{userData.email}</p>
                 </div>
               </div>
@@ -102,14 +208,14 @@ const ProfilePage = () => {
                       <User size={18} className="mr-3" />
                       <span>Información Personal</span>
                     </button>
-                  </li>
-                  <li>
+                  </li>                  <li>
                     <button 
                       onClick={() => setActiveTab('addresses')}
-                      className={`flex items-center w-full px-4 py-3 rounded-md ${activeTab === 'addresses' ? 'bg-red-50 text-red-600' : 'text-gray-700 hover:bg-gray-50'}`}
+                      className={`flex items-center w-full px-4 py-3 rounded-md ${activeTab === 'addresses' ? 'bg-red-50 text-red-600' : 'text-gray-700 hover:bg-gray-50'} opacity-50 cursor-not-allowed`}
+                      disabled
                     >
                       <MapPin size={18} className="mr-3" />
-                      <span>Mis Direcciones</span>
+                      <span>Mis Direcciones (Próximamente)</span>
                     </button>
                   </li>
                   <li>
@@ -147,16 +253,29 @@ const ProfilePage = () => {
           
           {/* Main Content Area */}
           <div className="md:w-3/4">
-            <div className="bg-white rounded-lg shadow-sm">
-              {/* Personal Information */}
+            <div className="bg-white rounded-lg shadow-sm">              {/* Personal Information */}
               {activeTab === 'personal' && (
                 <div className="p-6">
+                  {/* Mensajes de feedback */}
+                  {updateMessage && (
+                    <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-md">
+                      {updateMessage}
+                    </div>
+                  )}
+                  
+                  {updateError && (
+                    <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md whitespace-pre-line">
+                      {updateError}
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-gray-900">Información Personal</h2>
                     {!isEditing && (
                       <button 
                         onClick={() => setIsEditing(true)} 
                         className="flex items-center text-red-600 hover:text-red-800 transition-colors"
+                        disabled={isUpdating}
                       >
                         <Edit size={16} className="mr-1" />
                         <span>Editar</span>
@@ -166,28 +285,29 @@ const ProfilePage = () => {
                   
                   {isEditing ? (
                     // Edit mode
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-6">                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                          <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
                           <input
                             type="text"
-                            id="firstName"
-                            name="firstName"
-                            value={userData.firstName}
+                            id="nombre"
+                            name="nombre"
+                            value={userData.nombre}
                             onChange={handleInputChange}
                             className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            required
                           />
                         </div>
                         <div>
-                          <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">Apellido</label>
+                          <label htmlFor="apellidos" className="block text-sm font-medium text-gray-700 mb-1">Apellidos</label>
                           <input
                             type="text"
-                            id="lastName"
-                            name="lastName"
-                            value={userData.lastName}
+                            id="apellidos"
+                            name="apellidos"
+                            value={userData.apellidos}
                             onChange={handleInputChange}
                             className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            required
                           />
                         </div>
                         <div>
@@ -199,43 +319,58 @@ const ProfilePage = () => {
                             value={userData.email}
                             onChange={handleInputChange}
                             className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            required
                           />
                         </div>
                         <div>
-                          <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                          <label htmlFor="telefono" className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
                           <input
                             type="tel"
-                            id="phone"
-                            name="phone"
-                            value={userData.phone}
+                            id="telefono"
+                            name="telefono"
+                            value={userData.telefono}
                             onChange={handleInputChange}
                             className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            required
                           />
                         </div>
                       </div>
-                      
-                      <div className="flex justify-end space-x-3 pt-4">
+                        <div className="flex justify-end space-x-3 pt-4">
                         <button
-                          onClick={() => setIsEditing(false)}
+                          onClick={() => {
+                            setIsEditing(false);
+                            setUpdateError('');
+                            setUpdateMessage('');
+                            // Restaurar datos originales
+                            if (user) {
+                              setUserData({
+                                nombre: user.nombre || '',
+                                apellidos: user.apellidos || '',
+                                email: user.email || '',
+                                telefono: user.telefono || ''
+                              });
+                            }
+                          }}
                           className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                          disabled={isUpdating}
                         >
                           Cancelar
                         </button>
                         <button
                           onClick={handleSaveProfile}
-                          className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                          className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={isUpdating}
                         >
-                          Guardar Cambios
+                          {isUpdating ? 'Guardando...' : 'Guardar Cambios'}
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    // View mode
+                  ) : (                    // View mode
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
                         <div>
-                          <label className="block text-sm font-medium text-gray-500">Nombre</label>
-                          <p className="text-gray-900">{userData.firstName} {userData.lastName}</p>
+                          <label className="block text-sm font-medium text-gray-500">Nombre completo</label>
+                          <p className="text-gray-900">{userData.nombre} {userData.apellidos}</p>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-500">Email</label>
@@ -243,53 +378,35 @@ const ProfilePage = () => {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-500">Teléfono</label>
-                          <p className="text-gray-900">{userData.phone}</p>
+                          <p className="text-gray-900">{userData.telefono}</p>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-500">Dirección Predeterminada</label>
-                          <p className="text-gray-900">{userData.address}</p>
-                          <p className="text-gray-900">{userData.city}, {userData.state} {userData.zipCode}</p>
+                          <label className="block text-sm font-medium text-gray-500">Información adicional</label>
+                          <p className="text-gray-500 text-sm">Las direcciones y otra información se implementarán próximamente</p>
                         </div>
                       </div>
                     </div>
                   )}
                 </div>
               )}
-              
-              {/* Saved Addresses */}
+                {/* Saved Addresses - Deshabilitado por ahora */}
               {activeTab === 'addresses' && (
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-gray-900">Mis Direcciones</h2>
-                    <button className="flex items-center text-red-600 hover:text-red-800 transition-colors">
-                      <Plus size={16} className="mr-1" />
-                      <span>Añadir Nueva</span>
-                    </button>
                   </div>
                   
-                  <div className="space-y-4">
-                    {savedAddresses.map(address => (
-                      <div key={address.id} className="border rounded-lg p-4 relative hover:border-red-300 transition-colors">
-                        {address.isDefault && (
-                          <span className="absolute top-4 right-4 bg-red-100 text-red-700 text-xs px-2 py-1 rounded-full">
-                            Predeterminada
-                          </span>
-                        )}
-                        <h3 className="font-medium text-lg">{address.name}</h3>
-                        <p className="text-gray-700">{address.address}</p>
-                        <p className="text-gray-700">{address.city}, {address.state} {address.zipCode}</p>
-                        
-                        <div className="mt-4 flex space-x-4 text-sm">
-                          <button className="text-red-600 hover:text-red-800 transition-colors">Editar</button>
-                          <button className="text-gray-600 hover:text-gray-800 transition-colors">Eliminar</button>
-                          {!address.isDefault && (
-                            <button className="text-gray-600 hover:text-gray-800 transition-colors">
-                              Establecer como predeterminada
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                  <div className="text-center p-8">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                      <MapPin size={32} className="text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Funcionalidad en desarrollo</h3>
+                    <p className="text-gray-500 mb-4">
+                      La gestión de direcciones se implementará próximamente para mejorar tu experiencia de compra.
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      Por ahora puedes gestionar tu información personal desde la pestaña anterior.
+                    </p>
                   </div>
                 </div>
               )}
@@ -355,31 +472,196 @@ const ProfilePage = () => {
               )}
               
 
-              
-              {/* Account Settings */}
+                {/* Account Settings */}
               {activeTab === 'settings' && (
                 <div className="p-6">
+                  {/* Mensajes de feedback */}
+                  {updateMessage && (
+                    <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-md">
+                      {updateMessage}
+                    </div>
+                  )}
+                  
+                  {updateError && (
+                    <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md whitespace-pre-line">
+                      {updateError}
+                    </div>
+                  )}
+
                   <div className="mb-6">
                     <h2 className="text-xl font-semibold text-gray-900 mb-4">Configuración de la cuenta</h2>
                     
                     <div className="space-y-4">
                       <div className="border-b pb-4">
                         <h3 className="font-medium mb-2">Cambiar Contraseña</h3>
-                        <button className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
-                          Cambiar Contraseña
-                        </button>
-                      </div>
-                      
-
-                      
-                      <div className="pt-4">
-                        <h3 className="font-medium mb-2 text-gray-700">Eliminar cuenta</h3>
-                        <p className="text-sm text-gray-500 mb-2">
-                          Al eliminar tu cuenta, perderás acceso a tu historial de pedidos y a tus datos guardados.
+                        <p className="text-sm text-gray-600 mb-3">
+                          Actualiza tu contraseña para mantener tu cuenta segura.
                         </p>
-                        <button className="px-4 py-2 border border-red-600 text-red-600 rounded-md hover:bg-red-50 transition-colors">
-                          Eliminar mi cuenta
-                        </button>
+                        
+                        {!showChangePassword ? (
+                          <button 
+                            onClick={() => setShowChangePassword(true)}
+                            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                          >
+                            Cambiar Contraseña
+                          </button>
+                        ) : (
+                          <form onSubmit={handleChangePassword} className="space-y-4 mt-4">
+                            <div>
+                              <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                                Contraseña actual
+                              </label>
+                              <input
+                                type="password"
+                                id="currentPassword"
+                                name="currentPassword"
+                                value={passwordData.currentPassword}
+                                onChange={handlePasswordChange}
+                                className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                                required
+                              />
+                            </div>
+                            
+                            <div>
+                              <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                                Nueva contraseña
+                              </label>
+                              <input
+                                type="password"
+                                id="newPassword"
+                                name="newPassword"
+                                value={passwordData.newPassword}
+                                onChange={handlePasswordChange}
+                                className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                                minLength="10"
+                                required
+                              />
+                              <p className="text-xs text-gray-500 mt-1">
+                                Mínimo 10 caracteres
+                              </p>
+                            </div>
+                            
+                            <div>
+                              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                                Confirmar nueva contraseña
+                              </label>
+                              <input
+                                type="password"
+                                id="confirmPassword"
+                                name="confirmPassword"
+                                value={passwordData.confirmPassword}
+                                onChange={handlePasswordChange}
+                                className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                                required
+                              />
+                            </div>
+                            
+                            <div className="flex space-x-3">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowChangePassword(false);
+                                  setPasswordData({
+                                    currentPassword: '',
+                                    newPassword: '',
+                                    confirmPassword: ''
+                                  });
+                                  setUpdateError('');
+                                }}
+                                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                                disabled={isUpdating}
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                type="submit"
+                                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={isUpdating}
+                              >
+                                {isUpdating ? 'Cambiando...' : 'Cambiar Contraseña'}
+                              </button>
+                            </div>
+                          </form>
+                        )}
+                      </div>                      <div className="pt-4">
+                        <h3 className="font-medium mb-2 text-gray-700">Desactivar cuenta</h3>
+                        <p className="text-sm text-gray-500 mb-3">
+                          Al desactivar tu cuenta, no podrás iniciar sesión pero tus datos se conservarán. 
+                          Puedes contactar al soporte para reactivarla.
+                        </p>
+                        
+                        {!showDeactivateAccount ? (
+                          <button 
+                            onClick={() => setShowDeactivateAccount(true)}
+                            className="px-4 py-2 border border-red-600 text-red-600 rounded-md hover:bg-red-50 transition-colors"
+                          >
+                            Desactivar mi cuenta
+                          </button>                        ) : (
+                          <form onSubmit={handleDeactivateAccount} className="space-y-4 mt-4">
+                            <div>
+                              <label htmlFor="deactivationPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                                Confirma tu contraseña actual
+                              </label>
+                              <input
+                                type="password"
+                                id="deactivationPassword"
+                                value={deactivationPassword}
+                                onChange={(e) => setDeactivationPassword(e.target.value)}
+                                className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                                placeholder="Ingresa tu contraseña actual"
+                                required
+                              />
+                            </div>
+
+                            <div>
+                              <label htmlFor="confirmationText" className="block text-sm font-medium text-gray-700 mb-1">
+                                Para confirmar, escribe la palabra: <span className="font-bold text-red-600">DESACTIVAR</span>
+                              </label>
+                              <input
+                                type="text"
+                                id="confirmationText"
+                                value={confirmationText}
+                                onChange={(e) => setConfirmationText(e.target.value)}
+                                className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                                placeholder="Escribe exactamente: DESACTIVAR"
+                                required
+                              />
+                              <p className="text-xs text-gray-500 mt-1">
+                                Debes escribir exactamente "DESACTIVAR" (en mayúsculas) para continuar
+                              </p>
+                            </div>
+                            
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                              <p className="text-sm text-yellow-800">
+                                <strong>⚠️ Advertencia:</strong> Tu cuenta será desactivada y no podrás iniciar sesión. 
+                                Para reactivarla deberás contactar al soporte técnico.
+                              </p>
+                            </div>
+                            
+                            <div className="flex space-x-3">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowDeactivateAccount(false);
+                                  setDeactivationPassword('');
+                                  setConfirmationText('');
+                                  setUpdateError('');
+                                }}
+                                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                                disabled={isUpdating}
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                type="submit"
+                                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={isUpdating}
+                              >
+                                {isUpdating ? 'Desactivando...' : 'Desactivar Cuenta'}
+                              </button>
+                            </div>
+                          </form>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -18,10 +18,10 @@ const Footer = () => {
               Las mejores fresas, calidad premium, entregadas frescas a tu puerta. 
               Cultivamos con amor y cuidado para ofrecerte el mejor sabor.
             </p>            <div className="flex space-x-4">
-              <a href="#" className="text-gray-300 hover:text-red-400 transition-colors duration-300 p-2 rounded-full hover:bg-gray-800">
+              <a href="https://www.instagram.com/fresaterra?igsh=cWhoYTRxZ2U3YjR2" target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-red-400 transition-colors duration-300 p-2 rounded-full hover:bg-gray-800">
                 <Instagram size={24} />
               </a>
-              <a href="#" className="text-gray-300 hover:text-red-400 transition-colors duration-300 p-2 rounded-full hover:bg-gray-800">
+              <a href="https://www.facebook.com/profile.php?id=61576327966854" target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-red-400 transition-colors duration-300 p-2 rounded-full hover:bg-gray-800">
                 <Facebook size={24} />
               </a>
             </div>

@@ -23,12 +23,16 @@ import NotFoundPage from './pages/NotFoundPage';
 import AboutPage from './pages/AboutPage';
 import PaymentFailedPage from './pages/PaymentFailedPage';
 import PaymentPendingPage from './pages/PaymentPendingPage';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
     <AuthProvider>
       <ShoppingCartProvider>
-        <Router>
+        <Router future={{ 
+          v7_startTransition: true ,
+          v7_relativeSplatPath: true
+        }}>
           <Toaster position="top-center" />
           <Routes>
             <Route path="/" element={<MainLayout />}>
@@ -37,7 +41,11 @@ function App() {
               <Route path="products/:id" element={<ProductDetailPage />} />
               <Route path="about" element={<AboutPage />} />
               <Route path="cart" element={<CartPage />} />
-              <Route path="checkout" element={<CheckoutPage />} />
+              <Route path="checkout" element={
+                <ProtectedRoute>
+                  <CheckoutPage />
+                </ProtectedRoute>
+              } />
               <Route path="order-confirmation/:id" element={<OrderConfirmationPage />} />
               <Route path="pago-exitoso" element={<OrderConfirmationPage />} />
               <Route path="pago-fallido" element={<PaymentFailedPage />} />

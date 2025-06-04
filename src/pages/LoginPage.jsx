@@ -15,7 +15,6 @@ const LoginPage = () => {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -26,7 +25,35 @@ const LoginPage = () => {
       navigate('/');
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('Correo o contraseña incorrectos. Por favor intenta de nuevo.');
+        // Verificar si es error de cuenta desactivada
+      if (error.message && error.message.includes('desactivada')) {
+        toast.error(
+          'Tu cuenta ha sido desactivada. Por favor, contacta al soporte para reactivarla.',
+          {
+            duration: 6000,
+            style: {
+              background: '#FEF2F2',
+              color: '#991B1B',
+              border: '1px solid #FECACA'
+            }
+          }
+        );
+      } else if (error.status === 403) {
+        // Error 403 del backend cuando la cuenta está desactivada
+        toast.error(
+          'Tu cuenta ha sido desactivada. Por favor, contacta al soporte para reactivarla.',
+          {
+            duration: 6000,
+            style: {
+              background: '#FEF2F2',
+              color: '#991B1B',
+              border: '1px solid #FECACA'
+            }
+          }
+        );
+      } else {
+        toast.error('Correo o contraseña incorrectos. Por favor intenta de nuevo.');
+      }
     } finally {
       setIsLoading(false);
     }

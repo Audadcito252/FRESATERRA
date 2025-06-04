@@ -1,94 +1,99 @@
 // filepath: c:\Users\MikeZeroX\Desktop\fresafront\FRESATERRA\src\services\api.js
 
-const baseURL = 'http://127.0.0.1:8000/api/v1'; // Your API base URL
+import axios from 'axios';
 
-const getHeaders = () => {
-  const headers = {
+const baseURL = 'http://127.0.0.1:8000/api/v1';
+
+// Crear instancia de Axios
+const api = axios.create({
+  baseURL,
+  timeout: 10000, // 10 segundos timeout
+  headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-  };
-  const token = localStorage.getItem('token');
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
-};
+  },
+});
 
-const handleResponse = async (response) => {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ message: response.statusText }));
-    // Throw an error that includes the status and the error message from the server
-    const error = new Error(errorData.message || 'Something went wrong');
-    error.status = response.status;
-    error.data = errorData; // Attach full error data
-    throw error;
+// Request interceptor - Agregar token automáticamente
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    // Log para debugging (remover en producción)
+    console.log('API Request:', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      data: config.data,
+      headers: config.headers
+    });
+    
+    return config;
+  },
+  (error) => {
+    console.error('Request Error:', error);
+    return Promise.reject(error);
   }
-  // If the content type is JSON, parse it, otherwise return as text
-  const contentType = response.headers.get("content-type");
-  if (contentType && contentType.indexOf("application/json") !== -1) {
-    return response.json();
-  }
-  return response.text();
-};
+);
 
-const api = {
-  get: async (url, options = {}) => {
-    const response = await fetch(`${baseURL}${url}`, {
-      ...options,
-      method: 'GET',
-      headers: getHeaders(),
+// Response interceptor - Manejo global de errores
+api.interceptors.response.use(
+  (response) => {
+    // Log para debugging (remover en producción)
+    console.log('API Response:', {
+      status: response.status,
+      data: response.data,
+      url: response.config.url
     });
-    return handleResponse(response);
+    
+    return response.data; // Retornar solo los datos
   },
-  post: async (url, data, options = {}) => {
-    const response = await fetch(`${baseURL}${url}`, {
-      ...options,
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(data),
-    });
-    return handleResponse(response);
-  },
-  patch: async (url, data, options = {}) => {
-    const response = await fetch(`${baseURL}${url}`, {
-      ...options,
-      method: 'PATCH',
-      headers: getHeaders(),
-      body: JSON.stringify(data),
-    });
-    return handleResponse(response);
-  },
-  put: async (url, data, options = {}) => {
-    const response = await fetch(`${baseURL}${url}`, {
-      ...options,
-      method: 'PUT',
-      headers: getHeaders(),
-      body: JSON.stringify(data),
-    });
-    return handleResponse(response);
-  },
-  delete: async (url, options = {}) => {
-    const response = await fetch(`${baseURL}${url}`, {
-      ...options,
-      method: 'DELETE',
-      headers: getHeaders(),
-    });
-    return handleResponse(response);
-  },
-  // You can add other methods like put, delete, etc., as needed
-  // Adding a defaults object to mimic some of axios's structure, though it's not directly used by fetch
-  defaults: {
-    headers: {
-      common: {
-        // This is just for structural similarity if other parts of your code expect it.
-        // Actual headers are set by getHeaders() per request.
+  (error) => {
+    console.error('API Error:', error);
+
+    // Manejo específico de errores
+    if (error.response) {
+      // El servidor respondió con un error
+      const { status, data } = error.response;
+      
+      // Token expirado o no válido
+      if (status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        // Opcional: redirigir al login
+        window.location.href = '/login';
       }
+      
+      // Crear error personalizado con información útil
+      const customError = new Error(
+        data?.message || 
+        data?.error || 
+        `HTTP ${status}: ${error.response.statusText}`
+      );
+      customError.status = status;
+      customError.data = data;
+      
+      // Para errores de validación (422)
+      if (status === 422 && data?.errors) {
+        customError.validationErrors = data.errors;
+        customError.message = Object.values(data.errors)
+          .flat()
+          .join('\n');
+      }
+      
+      return Promise.reject(customError);
+    } else if (error.request) {
+      // No hubo respuesta del servidor
+      const networkError = new Error('Error de conexión. Verifica tu internet.');
+      networkError.isNetworkError = true;
+      return Promise.reject(networkError);
+    } else {
+      // Error en la configuración de la request
+      return Promise.reject(new Error('Error interno de la aplicación'));
     }
   }
-};
-
-// The interceptor concept is handled differently with fetch.
-// Token is added directly in getHeaders function.
-// For response interceptors (like error handling), it's done in handleResponse.
+);
 
 export default api;
