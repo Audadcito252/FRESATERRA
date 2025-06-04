@@ -4,16 +4,25 @@ import { useShoppingCart } from '../contexts/ShoppingCartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, CreditCard, Truck, CheckCircle2 } from 'lucide-react';
 import api from '../services/api';
+import { addressService } from '../services/addressService';
+import toast from 'react-hot-toast';
 
 const CheckoutPage = () => {
   const { cartItems, cartTotal, clearCart } = useShoppingCart();
   const { user, updateProfile, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-    const [formData, setFormData] = useState({
-    firstName: user?.firstName || '',
-    lastName: user?.lastName || '',
-    email: user?.email || '',
-    phone: user?.phone || '',
+    // Estados para direcciones del usuario
+  const [userAddresses, setUserAddresses] = useState([]);
+  const [defaultAddress, setDefaultAddress] = useState(null);
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
+  const [isNewAddressSaved, setIsNewAddressSaved] = useState(false);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
     paymentMethod: 'mercado-pago'
   });
   const [currentStep, setCurrentStep] = useState(1);
@@ -21,12 +30,86 @@ const CheckoutPage = () => {
   const [orderId, setOrderId] = useState('');
   const [addressOption, setAddressOption] = useState('profile'); // 'profile' o 'new'
   const [newAddress, setNewAddress] = useState({
-    street: '',
-    number: '',
-    district: '',
-    city: '',
-    reference: '',
-  });
+    calle: '',
+    numero: '',
+    distrito: '',
+    ciudad: 'Cusco',
+    referencia: '',  });
+
+  // Cargar direcciones del usuario cuando el componente se monta
+  useEffect(() => {
+    if (user && isAuthenticated) {
+      loadUserAddresses();
+      // Sincronizar datos del usuario con el formulario
+      setFormData(prevData => ({
+        ...prevData,
+        firstName: user.nombre || '',
+        lastName: user.apellidos || '',
+        email: user.email || '',
+        phone: user.telefono || ''
+      }));
+    }
+  }, [user, isAuthenticated]);
+  // Función para cargar las direcciones del usuario
+  const loadUserAddresses = async () => {
+    if (!user) return;
+    
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    setIsLoadingAddresses(true);
+    try {
+      const addresses = await addressService.getAddresses();
+      if (Array.isArray(addresses)) {
+        setUserAddresses(addresses);
+        // Buscar dirección predeterminada
+        const defaultAddr = addresses.find(addr => addr.predeterminada === true || addr.predeterminada === 'si');
+        setDefaultAddress(defaultAddr || null);
+      }
+    } catch (error) {
+      console.error('Error cargando direcciones del usuario:', error);
+      setUserAddresses([]);
+      setDefaultAddress(null);
+    } finally {
+      setIsLoadingAddresses(false);
+    }
+  };
+
+  // Función para guardar la nueva dirección
+  const handleSaveNewAddress = async () => {
+    if (!newAddress.calle || !newAddress.numero || !newAddress.distrito || !newAddress.referencia) {
+      toast.error('Por favor, completa todos los campos de la dirección');
+      return;
+    }
+
+    setIsSavingAddress(true);
+    try {
+      const addressData = {
+        calle: newAddress.calle,
+        numero: newAddress.numero,
+        distrito: newAddress.distrito,
+        ciudad: newAddress.ciudad,
+        referencia: newAddress.referencia,
+        predeterminada: 'no' // La guardamos como no predeterminada por defecto
+      };
+
+      const savedAddress = await addressService.createAddress(addressData);
+      
+      // Actualizar la lista de direcciones
+      await loadUserAddresses();
+      
+      // Marcar como guardada y establecer como dirección a usar
+      setIsNewAddressSaved(true);
+      setDefaultAddress(savedAddress);
+      
+      toast.success('Dirección guardada exitosamente');
+    } catch (error) {
+      console.error('Error guardando la dirección:', error);
+      toast.error('Error al guardar la dirección. Inténtalo de nuevo.');
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -43,6 +126,33 @@ const CheckoutPage = () => {
   };  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    
+    if (currentStep === 1) {
+      // Validar que se tenga una dirección válida antes de proceder
+      let hasValidAddress = false;
+      
+      if (addressOption === 'profile') {
+        hasValidAddress = defaultAddress !== null;
+      } else if (addressOption === 'new') {
+        // Para nueva dirección, debe estar guardada
+        hasValidAddress = isNewAddressSaved && defaultAddress !== null;
+      }
+      
+      if (!hasValidAddress) {
+        setIsSubmitting(false);
+        if (addressOption === 'new' && !isNewAddressSaved) {
+          toast.error('Por favor, guarda la dirección antes de continuar.');
+        } else {
+          toast.error('Por favor, selecciona o ingresa una dirección válida para continuar.');
+        }
+        return;
+      }
+      
+      // Si todo está bien, avanzar al siguiente paso
+      setCurrentStep(2);
+      setIsSubmitting(false);
+      return;
+    }
     
     if (currentStep === 2) {
       // Lógica para Mercado Pago
@@ -233,103 +343,179 @@ const CheckoutPage = () => {
                       />
                     </div>
                   </div>
-                  {/* Dirección */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Dirección de entrega</label>
-                    <select
+                  {/* Dirección */}                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Dirección de entrega</label>                    <select
                       className="w-full p-3 border border-gray-300 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                       value={addressOption}
-                      onChange={e => setAddressOption(e.target.value)}
+                      onChange={e => {
+                        setAddressOption(e.target.value);
+                        // Reset new address saved state when changing options
+                        setIsNewAddressSaved(false);
+                      }}
                     >
                       <option value="profile">Usar mi dirección predeterminada</option>
                       <option value="new">Ingresar nueva dirección</option>
+                      {userAddresses.length > 1 && <option value="select">Seleccionar otra dirección guardada</option>}
                     </select>
+
                     {addressOption === 'profile' ? (
                       <div className="bg-gray-50 p-3 rounded-lg border text-gray-700">
-                        <div><span className="font-medium">Calle:</span> {user?.address?.street || ''}</div>
-                        <div><span className="font-medium">Número:</span> {user?.address?.number || ''}</div>
-                        <div><span className="font-medium">Distrito:</span> {user?.address?.district || ''}</div>
-                        <div><span className="font-medium">Ciudad:</span> {user?.address?.city || ''}</div>
-                        <div><span className="font-medium">Referencia:</span> {user?.address?.reference || ''}</div>
+                        {isLoadingAddresses ? (
+                          <div className="flex items-center space-x-2 text-gray-400">
+                            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                            </svg>
+                            <span>Cargando dirección...</span>
+                          </div>
+                        ) : defaultAddress ? (
+                          <>
+                            <div><span className="font-medium">Calle:</span> {defaultAddress.calle}</div>
+                            <div><span className="font-medium">Número:</span> {defaultAddress.numero}</div>
+                            <div><span className="font-medium">Distrito:</span> {defaultAddress.distrito}</div>
+                            <div><span className="font-medium">Ciudad:</span> {defaultAddress.ciudad}</div>
+                            {defaultAddress.referencia && (
+                              <div><span className="font-medium">Referencia:</span> {defaultAddress.referencia}</div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-gray-500 italic">
+                            <p>No tienes una dirección predeterminada configurada.</p>
+                            <p className="text-sm mt-1">Selecciona "Ingresar nueva dirección" para continuar.</p>
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-2">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Calle</label>
-                          <input
-                            type="text"
-                            name="street"
-                            value={newAddress.street}
-                            onChange={e => setNewAddress({ ...newAddress, street: e.target.value })}
-                            required
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                            placeholder="Ej: Av. Primavera"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Número</label>
-                          <input
-                            type="text"
-                            name="number"
-                            value={newAddress.number}
-                            onChange={e => setNewAddress({ ...newAddress, number: e.target.value })}
-                            required
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                            placeholder="Ej: 123"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Distrito</label>
-                          <select
-                            name="district"
-                            value={newAddress.district}
-                            onChange={e => setNewAddress({ ...newAddress, district: e.target.value })}
-                            required
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    ) : addressOption === 'select' ? (
+                      <div className="space-y-3">
+                        {userAddresses.map(address => (
+                          <div 
+                            key={address.id} 
+                            className="border rounded-lg p-3 cursor-pointer hover:border-red-300 transition-colors"
+                            onClick={() => {
+                              setDefaultAddress(address);
+                              setAddressOption('profile');
+                            }}
                           >
-                            <option value="">Selecciona un distrito</option>
-                            <option value="Santiago">Santiago</option>
-                            <option value="San Jeronimo">San Jeronimo</option>
-                            <option value="Cusco">Cusco</option>
-                            <option value="San Sebastian">San Sebastian</option>
-                            <option value="Wanchaq">Wanchaq</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
-                          <input
-                            type="text"
-                            name="city"
-                            value={newAddress.city}
-                            onChange={e => setNewAddress({ ...newAddress, city: e.target.value })}
-                            required
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                            placeholder="Ej: Lima"
-                          />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Referencia</label>
-                          <input
-                            type="text"
-                            name="reference"
-                            value={newAddress.reference}
-                            onChange={e => setNewAddress({ ...newAddress, reference: e.target.value })}
-                            required
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                            placeholder="Ej: Puerta marrón, frente a parque"
-                          />
-                        </div>
+                            <div className="text-gray-700">
+                              <div><span className="font-medium">Calle:</span> {address.calle} {address.numero}</div>
+                              <div><span className="font-medium">Distrito:</span> {address.distrito}, {address.ciudad}</div>
+                              {address.referencia && (
+                                <div className="text-sm text-gray-600">Referencia: {address.referencia}</div>
+                              )}
+                              {address.predeterminada && (
+                                <span className="inline-block bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full mt-1">
+                                  Predeterminada
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>                    ) : (
+                      <div>
+                        {isNewAddressSaved ? (
+                          // Mostrar resumen de la dirección guardada
+                          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                            <div className="flex items-center mb-2">
+                              <CheckCircle2 className="text-green-600 mr-2" size={20} />
+                              <span className="font-medium text-green-800">Dirección guardada exitosamente</span>
+                            </div>
+                            <div className="text-gray-700 space-y-1">
+                              <div><span className="font-medium">Calle:</span> {newAddress.calle} {newAddress.numero}</div>
+                              <div><span className="font-medium">Distrito:</span> {newAddress.distrito}, {newAddress.ciudad}</div>
+                              <div><span className="font-medium">Referencia:</span> {newAddress.referencia}</div>
+                            </div>
+                          </div>
+                        ) : (
+                          // Formulario para ingresar nueva dirección
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-2">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Calle</label>
+                              <input
+                                type="text"
+                                name="calle"
+                                value={newAddress.calle}
+                                onChange={e => setNewAddress({ ...newAddress, calle: e.target.value })}
+                                required
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                                placeholder="Ej: Av. Primavera"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Número</label>
+                              <input
+                                type="text"
+                                name="numero"
+                                value={newAddress.numero}
+                                onChange={e => setNewAddress({ ...newAddress, numero: e.target.value })}
+                                required
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                                placeholder="Ej: 123"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Distrito</label>
+                              <select
+                                name="distrito"
+                                value={newAddress.distrito}
+                                onChange={e => setNewAddress({ ...newAddress, distrito: e.target.value })}
+                                required
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                              >
+                                <option value="">Selecciona un distrito</option>
+                                <option value="Santiago">Santiago</option>
+                                <option value="San Jeronimo">San Jeronimo</option>
+                                <option value="Cusco">Cusco</option>
+                                <option value="San Sebastian">San Sebastian</option>
+                                <option value="Wanchaq">Wanchaq</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+                              <input
+                                type="text"
+                                name="ciudad"
+                                value={newAddress.ciudad}
+                                readOnly
+                                required
+                                className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed focus:outline-none"
+                                placeholder="Cusco"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Referencia</label>
+                              <input
+                                type="text"
+                                name="referencia"
+                                value={newAddress.referencia}
+                                onChange={e => setNewAddress({ ...newAddress, referencia: e.target.value })}
+                                required
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                                placeholder="Ej: Puerta marrón, frente a parque"
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                  <div className="pt-4 flex justify-end">
-                    <button
-                      type="submit"
-                      className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? "Procesando..." : "Continuar al pago"}
-                    </button>
+                  </div>                  <div className="pt-4 flex justify-end space-x-3">
+                    {addressOption === 'new' && !isNewAddressSaved ? (
+                      <button
+                        type="button"
+                        onClick={handleSaveNewAddress}
+                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                        disabled={isSavingAddress}
+                      >
+                        {isSavingAddress ? "Guardando..." : "Guardar dirección"}
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? "Validando..." : "Continuar al pago"}
+                      </button>
+                    )}
                   </div>
                 </form>
               </div>
@@ -398,28 +584,7 @@ const CheckoutPage = () => {
                           <div>
                             <p className="text-sm font-medium text-gray-700">Tarjetas de crédito/débito</p>
                             <p className="text-xs text-gray-500">Visa, Mastercard, y más</p>
-                          </div>
-                        </div>                        {/* Transferencia bancaria */}
-                        <div className="flex items-center p-3 bg-green-50 rounded-lg border border-green-200">
-                          <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold text-xs mr-3">
-                            🏦
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Transferencia bancaria</p>
-                            <p className="text-xs text-gray-500">Transferencia directa a cuenta</p>
-                          </div>
-                        </div>
-
-                        {/* Otros */}
-                        <div className="flex items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
-                          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xs mr-3">
-                            +
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Y muchos más</p>
-                            <p className="text-xs text-gray-500">Billeteras digitales y bancos</p>
-                          </div>
-                        </div>
+                          </div>                        </div>
                       </div>
                     </div>
                   </div>
