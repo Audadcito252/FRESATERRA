@@ -22,10 +22,10 @@ const LoginPage = () => {
     try {
       await login(email, password);
       toast.success('¡Inicio de sesión exitoso!');
-      navigate('/');
-    } catch (error) {
+      navigate('/');    } catch (error) {
       console.error('Login error:', error);
-        // Verificar si es error de cuenta desactivada
+      
+      // Verificar si es error de cuenta desactivada
       if (error.message && error.message.includes('desactivada')) {
         toast.error(
           'Tu cuenta ha sido desactivada. Por favor, contacta al soporte para reactivarla.',
@@ -51,8 +51,12 @@ const LoginPage = () => {
             }
           }
         );
-      } else {
+      } else if (error.status === 401) {
+        // Credenciales incorrectas
         toast.error('Correo o contraseña incorrectos. Por favor intenta de nuevo.');
+      } else {
+        // Cualquier otro error
+        toast.error(error.message || 'Error al iniciar sesión. Por favor intenta de nuevo.');
       }
     } finally {
       setIsLoading(false);
@@ -79,9 +83,8 @@ const LoginPage = () => {
       <div className="container w-full max-w-md overflow-hidden rounded-lg bg-white shadow-lg my-5">
         <div className="p-8">
           <h1 className="text-2xl font-bold mb-1 text-center">Iniciar sesión</h1>
-          <p className="text-sm text-center text-gray-500 mb-6">O <Link to="/register" className="text-[#EC0617]">crea una cuenta nueva</Link></p>
-        
-          <form onSubmit={handleSubmit} autoComplete="off">
+          <p className="text-sm text-center text-gray-500 mb-6">O <Link to="/register" className="text-[#EC0617]">crea una cuenta nueva</Link></p>        
+          <form onSubmit={handleSubmit}>
             <div className="form-group mb-5">
               <label htmlFor="email" className="block text-black mb-2 font-medium">
                 Correo Electrónico
@@ -92,7 +95,7 @@ const LoginPage = () => {
                   id="email"
                   name="email"
                   type="email"
-                  autoComplete="email"
+                  autoComplete="username"
                   required
                   className="w-full p-3 pl-10 border border-[#ddd] rounded text-base focus:outline-none focus:border-[#EC0617] transition-all"
                   placeholder="ejemplo@dominio.com"

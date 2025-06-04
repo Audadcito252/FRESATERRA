@@ -57,13 +57,17 @@ api.interceptors.response.use(
     if (error.response) {
       // El servidor respondió con un error
       const { status, data } = error.response;
-      
-      // Token expirado o no válido
+        // Token expirado o no válido
       if (status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        // Opcional: redirigir al login
-        window.location.href = '/login';
+        // No redirigir automáticamente si es un intento de login
+        const isLoginAttempt = error.config?.url?.includes('/login');
+        
+        if (!isLoginAttempt) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          // Solo redirigir si NO es un intento de login
+          window.location.href = '/login';
+        }
       }
       
       // Crear error personalizado con información útil
