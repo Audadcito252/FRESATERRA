@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import useAddresses from '../hooks/useAddresses';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { toast as hotToast } from 'react-hot-toast';
 
 const ProfilePage = () => {
   const { user, updateProfile, changePassword, deactivateAccount, logout } = useAuth();
@@ -54,7 +55,7 @@ const ProfilePage = () => {
     calle: '',
     numero: '',
     distrito: '',
-    ciudad: '',
+    ciudad: 'Cusco',
     referencia: '',
     predeterminada: false
   });
@@ -64,7 +65,7 @@ const ProfilePage = () => {
     calle: '',
     numero: '',
     distrito: '',
-    ciudad: '',
+    ciudad: 'Cusco',
     referencia: '',
     predeterminada: false
   });
@@ -140,7 +141,6 @@ const ProfilePage = () => {
       predeterminada: address.predeterminada === 'si'
     });
   };
-
   const handleUpdateAddress = async (e) => {
     e.preventDefault();
     setUpdateError('');
@@ -149,9 +149,11 @@ const ProfilePage = () => {
     const success = await updateAddress(editingAddress, editAddressData);
     
     if (success) {
+      // Mostrar notificación de éxito en la parte superior
+      hotToast.success('Dirección actualizada exitosamente');
+      
       setUpdateMessage('Dirección actualizada exitosamente');
-      setEditingAddress(null);
-      setEditAddressData({
+      setEditingAddress(null);      setEditAddressData({
         calle: '',
         numero: '',
         distrito: '',
@@ -171,7 +173,6 @@ const ProfilePage = () => {
       }
     }
   };
-
   const handleSetAsDefault = async (addressId) => {
     setUpdateError('');
     setUpdateMessage('');
@@ -179,6 +180,9 @@ const ProfilePage = () => {
     const success = await setAddressAsDefault(addressId);
     
     if (success) {
+      // Mostrar notificación de éxito en la parte superior
+      hotToast.success('Dirección establecida como predeterminada');
+      
       setUpdateMessage('Dirección establecida como predeterminada');
       // Limpiar mensaje después de 3 segundos
       setTimeout(() => setUpdateMessage(''), 3000);
@@ -188,22 +192,33 @@ const ProfilePage = () => {
       }
     }
   };
-
   const handleAddAddress = async (e) => {
     e.preventDefault();
     setUpdateError('');
     setUpdateMessage('');
 
-    const success = await createAddress(newAddress);
+    // Asegúrate de enviar el formato correcto
+    const addressToSend = {
+      calle: newAddress.calle,
+      numero: newAddress.numero,
+      distrito: newAddress.distrito,
+      ciudad: 'Cusco',
+      referencia: newAddress.referencia,
+      predeterminada: !!newAddress.predeterminada // booleano
+    };
+
+    const success = await createAddress(addressToSend);
     
     if (success) {
+      // Mostrar notificación de éxito en la parte superior
+      hotToast.success('Dirección agregada exitosamente');
+      
       setUpdateMessage('Dirección agregada exitosamente');
-      setShowAddAddress(false);
-      setNewAddress({
+      setShowAddAddress(false);      setNewAddress({
         calle: '',
         numero: '',
         distrito: '',
-        ciudad: '',
+        ciudad: 'Cusco',
         referencia: '',
         predeterminada: false
       });
@@ -561,40 +576,9 @@ const ProfilePage = () => {
               )}              {/* Saved Addresses */}
               {activeTab === 'addresses' && (
                 <div className="p-6">
-                  {/* Mensajes de feedback */}
-                  {updateMessage && (
-                    <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-md">
-                      {updateMessage}
-                    </div>
-                  )}
-                  
-                  {updateError && (
-                    <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md whitespace-pre-line">
-                      {updateError}
-                    </div>
-                  )}
-
-                  {addressesError && (
-                    <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md whitespace-pre-line">
-                      {typeof addressesError === 'object' 
-                        ? Object.values(addressesError).flat().join('\n')
-                        : addressesError
-                      }
-                    </div>
-                  )}
-
                   <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-gray-900">Mis Direcciones</h2>
-                    {!showAddAddress && (
-                      <button 
-                        onClick={() => setShowAddAddress(true)}
-                        className="flex items-center text-red-600 hover:text-red-800 transition-colors"
-                        disabled={creatingAddress}
-                      >
-                        <Plus size={16} className="mr-1" />
-                        <span>Agregar Dirección</span>
-                      </button>
-                    )}
+                    {/* Botón +agregar dirección eliminado */}
                   </div>
 
                   {/* Formulario para agregar nueva dirección */}
@@ -643,18 +627,21 @@ const ProfilePage = () => {
                             <label htmlFor="distrito" className="block text-sm font-medium text-gray-700 mb-1">
                               Distrito <span className="text-red-500">*</span>
                             </label>
-                            <input
-                              type="text"
+                            <select
                               id="distrito"
                               name="distrito"
                               value={newAddress.distrito}
                               onChange={handleAddressChange}
-                              className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                              placeholder="Ej: Miraflores"
                               required
-                              minLength="3"
-                              maxLength="50"
-                            />
+                              className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            >
+                              <option value="">Selecciona un distrito</option>
+                              <option value="Santiago">Santiago</option>
+                              <option value="San Jeronimo">San Jeronimo</option>
+                              <option value="San Sebastian">San Sebastian</option>
+                              <option value="Wanchaq">Wanchaq</option>
+                              <option value="Cusco">Cusco</option>
+                            </select>
                           </div>
 
                           <div>
@@ -665,13 +652,9 @@ const ProfilePage = () => {
                               type="text"
                               id="ciudad"
                               name="ciudad"
-                              value={newAddress.ciudad}
-                              onChange={handleAddressChange}
-                              className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                              placeholder="Ej: Lima"
-                              required
-                              minLength="3"
-                              maxLength="50"
+                              value="Cusco"
+                              disabled
+                              className="w-full rounded-md border border-gray-300 p-2 bg-gray-100 text-gray-600 cursor-not-allowed focus:outline-none"
                             />
                           </div>
                         </div>
@@ -708,21 +691,19 @@ const ProfilePage = () => {
 
                         <div className="flex space-x-3 pt-4">
                           <button
-                            type="button"
-                            onClick={() => {
-                              setShowAddAddress(false);
-                              setNewAddress({
+                            type="button"                            onClick={() => {
+                              setShowAddAddress(false);                              setNewAddress({
                                 calle: '',
                                 numero: '',
                                 distrito: '',
-                                ciudad: '',
+                                ciudad: 'Cusco',
                                 referencia: '',
                                 predeterminada: false
                               });
                               setUpdateError('');
                               clearAddressError();
                             }}
-                            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
                             disabled={creatingAddress}
                           >
                             Cancelar
@@ -736,11 +717,9 @@ const ProfilePage = () => {
                           </button>
                         </div>
                       </form>
-                    </div>                  )}
-
-                  {/* Formulario para editar dirección */}
+                    </div>                  )}                  {/* Formulario para editar dirección */}
                   {editingAddress && (
-                    <div className="mb-6 p-4 border border-blue-200 rounded-md bg-blue-50">
+                    <div className="mb-6 p-4 border border-green-200 rounded-md bg-green-50">
                       <h3 className="text-lg font-medium text-gray-900 mb-4">Editar Dirección</h3>
                       
                       <form onSubmit={handleUpdateAddress} className="space-y-4">
@@ -748,14 +727,13 @@ const ProfilePage = () => {
                           <div>
                             <label htmlFor="edit-calle" className="block text-sm font-medium text-gray-700 mb-1">
                               Calle <span className="text-red-500">*</span>
-                            </label>
-                            <input
+                            </label>                            <input
                               type="text"
                               id="edit-calle"
                               name="calle"
                               value={editAddressData.calle}
                               onChange={handleEditAddressChange}
-                              className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                               placeholder="Ej: Av. Los Olivos"
                               required
                               minLength="5"
@@ -766,14 +744,13 @@ const ProfilePage = () => {
                           <div>
                             <label htmlFor="edit-numero" className="block text-sm font-medium text-gray-700 mb-1">
                               Número <span className="text-red-500">*</span>
-                            </label>
-                            <input
+                            </label>                            <input
                               type="text"
                               id="edit-numero"
                               name="numero"
                               value={editAddressData.numero}
                               onChange={handleEditAddressChange}
-                              className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                               placeholder="Ej: 123"
                               required
                               maxLength="10"
@@ -783,19 +760,21 @@ const ProfilePage = () => {
                           <div>
                             <label htmlFor="edit-distrito" className="block text-sm font-medium text-gray-700 mb-1">
                               Distrito <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="text"
+                            </label>                            <select
                               id="edit-distrito"
                               name="distrito"
                               value={editAddressData.distrito}
                               onChange={handleEditAddressChange}
-                              className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              placeholder="Ej: Miraflores"
                               required
-                              minLength="3"
-                              maxLength="50"
-                            />
+                              className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            >
+                              <option value="">Selecciona un distrito</option>
+                              <option value="Santiago">Santiago</option>
+                              <option value="San Jeronimo">San Jeronimo</option>
+                              <option value="San Sebastian">San Sebastian</option>
+                              <option value="Wanchaq">Wanchaq</option>
+                              <option value="Cusco">Cusco</option>
+                            </select>
                           </div>
 
                           <div>
@@ -806,13 +785,9 @@ const ProfilePage = () => {
                               type="text"
                               id="edit-ciudad"
                               name="ciudad"
-                              value={editAddressData.ciudad}
-                              onChange={handleEditAddressChange}
-                              className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              placeholder="Ej: Lima"
-                              required
-                              minLength="3"
-                              maxLength="50"
+                              value="Cusco"
+                              disabled
+                              className="w-full rounded-md border border-gray-300 p-2 bg-gray-100 text-gray-600 cursor-not-allowed focus:outline-none"
                             />
                           </div>
                         </div>
@@ -820,14 +795,13 @@ const ProfilePage = () => {
                         <div>
                           <label htmlFor="edit-referencia" className="block text-sm font-medium text-gray-700 mb-1">
                             Referencia (Opcional)
-                          </label>
-                          <textarea
+                          </label>                          <textarea
                             id="edit-referencia"
                             name="referencia"
                             value={editAddressData.referencia}
                             onChange={handleEditAddressChange}
                             rows="3"
-                            className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                             placeholder="Ej: Casa de dos pisos, puerta verde, al lado de la farmacia"
                             maxLength="255"
                           />
@@ -840,7 +814,7 @@ const ProfilePage = () => {
                             name="predeterminada"
                             checked={editAddressData.predeterminada}
                             onChange={handleEditAddressChange}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                           />
                           <label htmlFor="edit-predeterminada" className="ml-2 block text-sm text-gray-700">
                             Establecer como dirección predeterminada
@@ -849,14 +823,12 @@ const ProfilePage = () => {
 
                         <div className="flex space-x-3 pt-4">
                           <button
-                            type="button"
-                            onClick={() => {
-                              setEditingAddress(null);
-                              setEditAddressData({
+                            type="button"                            onClick={() => {
+                              setEditingAddress(null);                              setEditAddressData({
                                 calle: '',
                                 numero: '',
                                 distrito: '',
-                                ciudad: '',
+                                ciudad: 'Cusco',
                                 referencia: '',
                                 predeterminada: false
                               });
@@ -867,10 +839,9 @@ const ProfilePage = () => {
                             disabled={updatingAddress}
                           >
                             Cancelar
-                          </button>
-                          <button
+                          </button>                          <button
                             type="submit"
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={updatingAddress}
                           >
                             {updatingAddress ? 'Actualizando...' : 'Actualizar Dirección'}
@@ -885,65 +856,85 @@ const ProfilePage = () => {
                     <div className="text-center p-8">
                       <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
                       <p className="mt-2 text-gray-500">Cargando direcciones...</p>
-                    </div>
-                  ) : hasAddresses ? (
-                    <div className="space-y-4">
-                      {addresses.map((address) => (
-                        <div 
-                          key={address.id_direccion} 
-                          className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow"
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <MapPin size={16} className="text-gray-500" />
-                                {address.predeterminada === 'si' && (
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-600">
-                                    <Star size={12} className="mr-1" />
-                                    Predeterminada
-                                  </span>
-                                )}
-                              </div>
-                              
-                              <p className="font-medium text-gray-900">
-                                {address.calle} {address.numero}
-                              </p>
-                              <p className="text-gray-600">
-                                {address.distrito}, {address.ciudad}
-                              </p>
-                              {address.referencia && (
-                                <p className="text-sm text-gray-500 mt-1">
-                                  <span className="font-medium">Referencia:</span> {address.referencia}
-                                </p>
+                    </div>                  ) : hasAddresses ? (                    <>
+                      <div className="space-y-4">
+                        {addresses
+                          .sort((a, b) => {
+                            // Mover la dirección predeterminada al inicio
+                            if (a.predeterminada === 'si' && b.predeterminada !== 'si') return -1;
+                            if (a.predeterminada !== 'si' && b.predeterminada === 'si') return 1;
+                            return 0;
+                          })
+                          .map((address) => (<div 
+                            key={address.id_direccion} 
+                            className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow"
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <MapPin size={16} className="text-gray-500" />
+                              {address.predeterminada === 'si' && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-600">
+                                  <Star size={12} className="mr-1" />
+                                  Predeterminada
+                                </span>
                               )}
                             </div>
-                              <div className="flex items-center space-x-2 ml-4">
-                              {/* Botón para editar */}
+                            
+                            <p className="font-medium text-gray-900">
+                              {address.calle} {address.numero}
+                            </p>
+                            <p className="text-gray-600">
+                              {address.distrito}, {address.ciudad}
+                            </p>
+                            {address.referencia && (
+                              <p className="text-sm text-gray-500 mt-1">
+                                <span className="font-medium">Referencia:</span> {address.referencia}
+                              </p>
+                            )}                            {/* Botones de acción debajo de la información */}
+                            <div className="flex flex-col sm:flex-row gap-3 mt-4 pt-3 border-t border-gray-100">
                               <button 
                                 onClick={() => handleEditAddress(address)}
-                                className="text-blue-600 hover:text-blue-800 transition-colors"
-                                title="Editar dirección"
+                                className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 disabled={updatingAddress || settingDefaultAddress}
                               >
                                 <Edit size={16} />
+                                Editar dirección
                               </button>
-                              
-                              {/* Botón para establecer como predeterminada */}
                               {address.predeterminada !== 'si' && (
                                 <button 
                                   onClick={() => handleSetAsDefault(address.id_direccion)}
-                                  className="text-yellow-600 hover:text-yellow-800 transition-colors"
-                                  title="Establecer como predeterminada"
+                                  className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   disabled={updatingAddress || settingDefaultAddress}
                                 >
-                                  <Star size={16} />
+                                  {settingDefaultAddress ? (
+                                    <>
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                      Guardando...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Star size={16} />
+                                      Establecer como predeterminada
+                                    </>
+                                  )}
                                 </button>
                               )}
                             </div>
                           </div>
+                        ))}
+                      </div>
+                      
+                      {/* Botón para agregar más direcciones cuando ya existen */}
+                      {!showAddAddress && (
+                        <div className="mt-6 text-center">                          <button 
+                            onClick={() => setShowAddAddress(true)}
+                            className="inline-flex items-center px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                          >
+                            <Plus size={20} className="mr-2" />
+                            Agregar nueva dirección
+                          </button>
                         </div>
-                      ))}
-                    </div>
+                      )}
+                    </>
                   ) : (
                     <div className="text-center p-8">
                       <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">

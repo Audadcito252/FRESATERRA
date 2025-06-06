@@ -6,8 +6,7 @@ import { ArrowLeft, CreditCard, Truck, CheckCircle2 } from 'lucide-react';
 import api from '../services/api';
 import addressesService from '../services/addressesService';
 import useAddresses from '../hooks/useAddresses';
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import toast from 'react-hot-toast';
 
 const CheckoutPage = () => {
   const { cartItems, cartTotal, clearCart } = useShoppingCart();
@@ -36,8 +35,8 @@ const CheckoutPage = () => {
   });
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [orderId, setOrderId] = useState('');
-  const [addressOption, setAddressOption] = useState('profile'); // 'profile' o 'new'
+  const [orderId, setOrderId] = useState('');  const [addressOption, setAddressOption] = useState('profile'); // 'profile', 'select' o 'new'
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [newAddress, setNewAddress] = useState({
     calle: '',
     numero: '',
@@ -114,19 +113,21 @@ const CheckoutPage = () => {
     if (currentStep === 1) {
       // Validar que se tenga una dirección válida antes de proceder
       let hasValidAddress = false;
-      
-      if (addressOption === 'profile') {
+        if (addressOption === 'profile') {
         hasValidAddress = getDefaultAddress() !== null;
+      } else if (addressOption === 'select') {
+        hasValidAddress = selectedAddressId !== null;
       } else if (addressOption === 'new') {
         // Verificar que todos los campos estén llenos
         hasValidAddress = newAddress.calle && newAddress.numero && 
                          newAddress.distrito && newAddress.referencia;
       }
-      
-      if (!hasValidAddress) {
+        if (!hasValidAddress) {
         setIsSubmitting(false);
         if (addressOption === 'new') {
           toast.error('Por favor, completa todos los campos de la dirección.');
+        } else if (addressOption === 'select') {
+          toast.error('Por favor, selecciona una dirección para continuar.');
         } else {
           toast.error('Por favor, selecciona una dirección válida para continuar.');
         }
@@ -213,10 +214,8 @@ const CheckoutPage = () => {
   const shippingCost = hasStrawberryPackOffer ? 0 : 5.99;
   
   // Total final: subtotal de todos los productos + envío (sin impuestos según requerimientos)
-  const orderTotal = cartTotal + shippingCost;
-  return (
+  const orderTotal = cartTotal + shippingCost;  return (
     <div className="min-h-screen pt-24 pb-12 bg-gradient-to-br from-gray-100 via-white to-gray-200">
-      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Header */}
         <div className="mb-8">
@@ -334,12 +333,15 @@ const CheckoutPage = () => {
                       value={addressOption}
                       onChange={e => {
                         setAddressOption(e.target.value);
+                        setSelectedAddressId(null); // Reset selected address when changing option
                         clearAddressError();
                       }}
                     >
                       <option value="profile">Usar mi dirección predeterminada</option>
+                      {hasAddresses && addresses.length > 1 && (
+                        <option value="select">Seleccionar otra dirección guardada</option>
+                      )}
                       <option value="new">Ingresar nueva dirección</option>
-                      {addresses.length > 1 && <option value="select">Seleccionar otra dirección guardada</option>}
                     </select>
 
                     {/* Mostrar errores de direcciones si existen */}
@@ -362,6 +364,21 @@ const CheckoutPage = () => {
                             </svg>
                             <span>Cargando dirección...</span>
                           </div>
+                        ) : selectedAddressId && addresses.find(addr => addr.id_direccion === selectedAddressId) ? (
+                          (() => {
+                            const address = addresses.find(addr => addr.id_direccion === selectedAddressId);
+                            return (
+                              <>
+                                <div><span className="font-medium">Calle:</span> {address.calle}</div>
+                                <div><span className="font-medium">Número:</span> {address.numero}</div>
+                                <div><span className="font-medium">Distrito:</span> {address.distrito}</div>
+                                <div><span className="font-medium">Ciudad:</span> {address.ciudad}</div>
+                                {address.referencia && (
+                                  <div><span className="font-medium">Referencia:</span> {address.referencia}</div>
+                                )}
+                              </>
+                            );
+                          })()
                         ) : getDefaultAddress() ? (
                           <>
                             <div><span className="font-medium">Calle:</span> {getDefaultAddress().calle}</div>
@@ -378,14 +395,23 @@ const CheckoutPage = () => {
                             <p className="text-sm mt-1">Selecciona "Ingresar nueva dirección" para continuar.</p>
                           </div>
                         )}
-                      </div>
-                    ) : addressOption === 'select' ? (
+                      </div>                    ) : addressOption === 'select' ? (
                       <div className="space-y-3">
-                        {addresses.map(address => (
+                        <p className="text-sm text-gray-600 mb-3">Selecciona una de tus direcciones guardadas:</p>
+                        {addresses.filter(address => !address.predeterminada || address.predeterminada === 'no').map(address => (
                           <div 
                             key={address.id_direccion} 
-                            className="border rounded-lg p-3 cursor-pointer hover:border-red-300 transition-colors"
+                            className={`border rounded-lg p-3 cursor-pointer transition-colors ${
+                              selectedAddressId === address.id_direccion 
+                                ? 'border-red-500 bg-red-50' 
+                                : 'border-gray-300 hover:border-red-300'
+                            }`}
                             onClick={() => {
+                              setSelectedAddressId(address.id_direccion);
+                              toast.success(`Dirección seleccionada: ${address.calle} ${address.numero}, ${address.distrito}`);
+                              // Scroll to top
+                              window.scrollTo(0, 0);
+                              // Change address option to show the selected address in the profile view
                               setAddressOption('profile');
                             }}
                           >
@@ -395,15 +421,15 @@ const CheckoutPage = () => {
                               {address.referencia && (
                                 <div className="text-sm text-gray-600">Referencia: {address.referencia}</div>
                               )}
-                              {address.predeterminada === 'si' && (
-                                <span className="inline-block bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full mt-1">
-                                  Predeterminada
-                                </span>
-                              )}
                             </div>
                           </div>
                         ))}
-                      </div>                    ) : (
+                        {addresses.filter(address => !address.predeterminada || address.predeterminada === 'no').length === 0 && (
+                          <div className="text-gray-500 italic text-center py-4">
+                            No tienes otras direcciones guardadas además de la predeterminada.
+                          </div>
+                        )}
+                      </div>) : (
                       <div>
                         {/* Formulario para ingresar nueva dirección */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-2">

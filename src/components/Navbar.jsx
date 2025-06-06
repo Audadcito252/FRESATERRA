@@ -89,8 +89,9 @@ const Navbar = () => {
                 alt="FresaTerra" 
                 className="h-12 md:h-16 w-auto" 
                 style={{
-                  minWidth: '200px', 
-                  minHeight: '200px',
+                  minWidth: '100px', 
+                  minHeight: '160px',
+                  objectFit: 'fill',
                   position: 'relative',
                   top: '10px'
                 }} 

@@ -22,6 +22,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import NotFoundPage from './pages/NotFoundPage';
 import AboutPage from './pages/AboutPage';
 import PaymentFailedPage from './pages/PaymentFailedPage';
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import PaymentPendingPage from './pages/PaymentPendingPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -45,11 +46,11 @@ function App() {
                 <ProtectedRoute>
                   <CheckoutPage />
                 </ProtectedRoute>
-              } />
-              <Route path="order-confirmation/:id" element={<OrderConfirmationPage />} />
-              <Route path="pago-exitoso" element={<OrderConfirmationPage />} />
+              } />              <Route path="order-confirmation/:id" element={<OrderConfirmationPage />} />              <Route path="pago-exitoso" element={<PaymentSuccessPage />} />
               <Route path="pago-fallido" element={<PaymentFailedPage />} />
               <Route path="pago-pendiente" element={<PaymentPendingPage />} />
+              <Route path="register/pago-exitoso" element={<PaymentSuccessPage />} />
+              <Route path="register/pago-fallido" element={<PaymentFailedPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="orders" element={<OrdersPage />} />
               <Route path="login" element={<LoginPage />} />
