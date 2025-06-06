@@ -87,10 +87,9 @@ const ProductReview = ({ productId }) => {
       console.error("Error al cargar usuarios:", err);
     }
   };
-
   // Encontrar comentario del usuario actual
   const userComentario = user && comentarios.find(c => 
-    c.usuarios_id_usuario === user.id_usuario
+    c.usuarios_id_usuario === (user.id_usuario || user.id)
   );
 
   // Manejar edición de comentario
@@ -109,6 +108,14 @@ const ProductReview = ({ productId }) => {
     }, 100);
   };
 
+  // Función para cancelar edición y limpiar estado
+  const cancelarEdicion = () => {
+    setIsEditing(false);
+    setComentarioId(null);
+    setRating(5);
+    setContenido('');
+  };
+
   // Enviar comentario (crear nuevo o actualizar)
   const handleSubmitComentario = async (e) => {
     e.preventDefault();
@@ -117,14 +124,13 @@ const ProductReview = ({ productId }) => {
       alert('Por favor, ingrese un comentario');
       return;
     }
-    
-    try {
+      try {
       // Asegúrate de que el ID del usuario sea el correcto, según la estructura en AuthContext
       // AuthContext usa 'id', pero el backend parece esperar 'usuarios_id_usuario'
       const comentarioData = {
         calificacion: rating,
         contenido: contenido,
-        usuarios_id_usuario: user.id || 1, // Usar user.id o un valor por defecto para pruebas
+        usuarios_id_usuario: user.id_usuario || user.id || 1, // Usar user.id_usuario, user.id o un valor por defecto para pruebas
         producto_id: productId // Añadir el ID del producto para asociar el comentario
       };
       
@@ -134,22 +140,19 @@ const ProductReview = ({ productId }) => {
         // Actualizar comentario existente
         await comentariosService.actualizarComentario(comentarioId, comentarioData);
         console.log("Comentario actualizado con ID:", comentarioId);
+        alert("¡Comentario actualizado exitosamente!");
       } else {
         // Crear nuevo comentario
         const response = await comentariosService.crearComentario(comentarioData);
         console.log("Nuevo comentario creado:", response);
+        alert("¡Comentario publicado exitosamente!");
       }
       
       // Recargar comentarios
-      loadComentarios();
+      await loadComentarios();
       
-      // Limpiar formulario si es un nuevo comentario
-      if (!isEditing) {
-        setRating(5);
-        setContenido('');
-      }
-      
-      setIsEditing(false);
+      // Limpiar formulario completamente
+      cancelarEdicion();
       
     } catch (err) {
       console.error("Error al enviar comentario:", err);
@@ -157,19 +160,6 @@ const ProductReview = ({ productId }) => {
     }
   };
 
-  // Eliminar comentario
-  const handleDeleteComentario = async (id) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar este comentario?')) {
-      try {
-        console.log("Eliminando comentario con ID:", id);
-        await comentariosService.eliminarComentario(id);
-        loadComentarios();
-      } catch (err) {
-        console.error("Error al eliminar comentario:", err);
-        alert("No se pudo eliminar el comentario");
-      }
-    }
-  };
 
   // Formatear fecha
   const formatDate = (dateString) => {
@@ -240,28 +230,16 @@ const ProductReview = ({ productId }) => {
                       <p className="text-gray-600 text-sm mt-1">
                         {formatDate(comentario.fecha_creacion)}
                       </p>
-                    </div>
-                    {user && user.id_usuario === comentario.usuarios_id_usuario && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEditComentario(comentario)}
-                          className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-3 py-1 rounded-md transition-colors flex items-center"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => handleDeleteComentario(comentario.id_resena)}
-                          className="bg-red-500 hover:bg-red-600 text-white text-sm font-medium px-3 py-1 rounded-md transition-colors flex items-center"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          Eliminar
-                        </button>
-                      </div>
+                    </div>                    {user && (user.id_usuario === comentario.usuarios_id_usuario || user.id === comentario.usuarios_id_usuario) && (
+                      <button
+                        onClick={() => handleEditComentario(comentario)}
+                        className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-3 py-2 rounded-md transition-colors flex items-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Editar
+                      </button>
                     )}
                   </div>
                   <p className="mt-2 text-gray-700">{comentario.contenido}</p>
@@ -281,16 +259,11 @@ const ProductReview = ({ productId }) => {
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold">
                     {isEditing ? 'Editar tu reseña' : 'Agregar una reseña'}
-                  </h3>
-                  {isEditing && (
+                  </h3>                  {isEditing && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setIsEditing(false);
-                        setRating(5);
-                        setContenido('');
-                      }}
-                      className="text-gray-600 hover:text-gray-800 text-sm"
+                      onClick={cancelarEdicion}
+                      className="text-gray-600 hover:text-red-600 text-sm font-medium underline transition-colors"
                     >
                       Cancelar edición
                     </button>
@@ -304,22 +277,18 @@ const ProductReview = ({ productId }) => {
                   <div className="mb-4">
                     <label htmlFor="contenido" className="block text-gray-700 mb-2">
                       Comentario
-                    </label>
-                    <textarea
+                    </label>                    <textarea
                       id="contenido"
                       value={contenido}
                       onChange={(e) => setContenido(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                       rows="4"
                       placeholder="Comparte tu opinión sobre este producto..."
                       required
                     ></textarea>
-                  </div>
-                  <button
+                  </div>                  <button
                     type="submit"
-                    className={`text-white font-medium px-4 py-2 rounded-md transition-colors flex items-center ${
-                      isEditing ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-600 hover:bg-red-700'
-                    }`}
+                    className="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-md transition-colors flex items-center"
                   >
                     {isEditing ? (
                       <>
@@ -341,10 +310,9 @@ const ProductReview = ({ productId }) => {
               </div>
             ) : (
               <div className="mt-4 bg-gray-50 rounded-lg p-4 text-center">
-                <p className="text-gray-700">Ya has dejado una reseña para este producto.</p>
-                <button
+                <p className="text-gray-700">Ya has dejado una reseña para este producto.</p>                <button
                   onClick={() => handleEditComentario(userComentario)}
-                  className="mt-3 bg-blue-500 hover:bg-blue-600 text-white font-medium px-4 py-2 rounded-md transition-colors flex items-center mx-auto"
+                  className="mt-3 bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-md transition-colors flex items-center mx-auto"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
