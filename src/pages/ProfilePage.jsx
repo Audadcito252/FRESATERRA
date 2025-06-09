@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { User, MapPin, Package, CreditCard, Settings, ChevronRight, Edit, Plus, Trash2, Star } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { User, MapPin, Settings, Edit, Plus, Star } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import useAddresses from '../hooks/useAddresses';
 import { toast, ToastContainer } from 'react-toastify';
@@ -9,7 +8,8 @@ import { toast as hotToast } from 'react-hot-toast';
 
 const ProfilePage = () => {
   const { user, updateProfile, changePassword, deactivateAccount, logout } = useAuth();
-    // Hook para manejo de direcciones
+  
+  // Hook para manejo de direcciones
   const {
     addresses,
     loading: addressesLoading,
@@ -23,8 +23,7 @@ const ProfilePage = () => {
     setAddressAsDefault,
     clearError: clearAddressError,
     hasAddresses,
-    getDefaultAddress
-  } = useAddresses();
+    getDefaultAddress  } = useAddresses();
   
   const [activeTab, setActiveTab] = useState('personal');
   const [isEditing, setIsEditing] = useState(false);
@@ -88,8 +87,7 @@ const ProfilePage = () => {
       });
     }
   }, [user]); // Re-run this effect when the user object from AuthContext changes  // Lista de pedidos - usar órdenes del usuario si existen
-  const userOrders = user?.orders || [];
-
+  // const userOrders = user?.orders || []; // Comentado - ahora usamos el hook useOrders
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
@@ -384,17 +382,7 @@ const ProfilePage = () => {
                           {addresses.length}
                         </span>
                       )}
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      onClick={() => setActiveTab('orders')}
-                      className={`flex items-center w-full px-4 py-3 rounded-md ${activeTab === 'orders' ? 'bg-red-50 text-red-600' : 'text-gray-700 hover:bg-gray-50'}`}
-                    >
-                      <Package size={18} className="mr-3" />
-                      <span>Mis Pedidos</span>
-                    </button>
-                  </li>
+                    </button>                  </li>
 
                   <li>
                     <button
@@ -963,69 +951,7 @@ const ProfilePage = () => {
                       )}
                     </div>
                   )}
-                </div>
-              )}
-              
-              {/* Orders History */}
-              {activeTab === 'orders' && (
-                <div className="p-6">
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold text-gray-900">Mis Pedidos</h2>
-                  </div>
-                  
-                  {userOrders.length > 0 ? (
-                    <div className="space-y-6">
-                      {userOrders.map(order => (
-                        <div key={order.id} className="border rounded-lg overflow-hidden">
-                          <div className="bg-gray-50 p-4 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-                            <div>
-                              <p className="text-sm text-gray-500">Pedido #{order.id}</p>
-                              <p className="text-sm text-gray-500">Fecha: {order.date}</p>
-                            </div>
-                            <div className="flex flex-col md:items-end">
-                              <p className="font-medium">Total: S/ {order.total.toFixed(2)}</p>
-                              <span className={`text-sm px-2 py-1 rounded-full ${
-                                order.status === 'Entregado' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-blue-100 text-blue-800'
-                              }`}>
-                                {order.status}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="p-4">
-                            <h3 className="font-medium mb-2">Productos:</h3>
-                            <ul className="space-y-2">
-                              {order.items.map((item, idx) => (
-                                <li key={idx} className="flex justify-between">
-                                  <div>
-                                    <p className="text-gray-800">{item.name} x{item.quantity}</p>
-                                  </div>
-                                  <p className="text-gray-800">S/ {(item.price * item.quantity).toFixed(2)}</p>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div className="bg-gray-50 p-4 text-right">
-                            <Link to={`/orders/${order.id}`} className="text-red-600 hover:text-red-800 transition-colors inline-flex items-center">
-                              <span>Ver detalles</span>
-                              <ChevronRight size={16} />
-                            </Link>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center p-8">
-                      <p className="text-gray-500 mb-4">Aún no tienes pedidos realizados.</p>
-                      <Link to="/products" className="text-red-600 hover:text-red-800 transition-colors">
-                        Explorar productos
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              )}
-              
+                </div>              )}              
 
                 {/* Account Settings */}
               {activeTab === 'settings' && (

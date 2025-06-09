@@ -1,11 +1,35 @@
-import React, { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, CreditCard, RefreshCw, Clock } from 'lucide-react';
 
 const PaymentFailedPage = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [orderInfo, setOrderInfo] = useState(null);
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+    
+    // Obtener información de la URL
+    const orderId = searchParams.get('order_id');
+    const paymentId = searchParams.get('payment_id');
+    const status = searchParams.get('status');
+
+    if (orderId) {
+      setOrderInfo({
+        orderId,
+        paymentId,
+        status
+      });
+    }
+
+    // Redirigir automáticamente después de 15 segundos
+    const timer = setTimeout(() => {
+      navigate('/checkout');
+    }, 15000);
+
+    return () => clearTimeout(timer);
+  }, [searchParams, navigate]);
 
   return (
     <div className="min-h-screen pt-24 pb-12 bg-gradient-to-br from-gray-100 via-white to-gray-200">

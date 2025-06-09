@@ -1,11 +1,69 @@
-import React, { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, ArrowLeft, Package, Clock, Receipt } from 'lucide-react';
+import { useShoppingCart } from '../contexts/ShoppingCartContext';
+import paymentsService from '../services/paymentsService';
+import { toast } from 'react-toastify';
 
 const PaymentSuccessPage = () => {
+    const [searchParams] = useSearchParams();
+    const { clearCart } = useShoppingCart();
+    const navigate = useNavigate();
+    const [orderInfo, setOrderInfo] = useState(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    // Memoize the payment confirmation function to prevent recreating on every render
+    const handlePaymentConfirmation = useCallback(async (orderId, paymentId, status) => {
+        if (isProcessing) return; // Prevent multiple calls
+        
+        setIsProcessing(true);
+        
+        try {
+            await paymentsService.handlePaymentSuccess({
+                order_id: orderId,
+                payment_id: paymentId,
+                status: status
+            });
+            
+            console.log('Pago confirmado exitosamente');
+            toast.success('¡Pago confirmado exitosamente!');
+        } catch (error) {
+            console.error('Error confirmando pago:', error);
+            // Don't show error toast as payment was already successful from MP perspective
+        } finally {
+            setIsProcessing(false);
+        }
+    }, [isProcessing]);
+
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, []);
+        
+        // Obtener información de la URL
+        const orderId = searchParams.get('order_id');
+        const paymentId = searchParams.get('payment_id');
+        const status = searchParams.get('status');
+
+        if (orderId) {
+            setOrderInfo({
+                orderId,
+                paymentId,
+                status
+            });
+
+            // Confirmar el pago en el backend solo una vez
+            handlePaymentConfirmation(orderId, paymentId, status);
+
+            // Limpiar el carrito ya que el pago fue exitoso
+            clearCart();
+        }
+
+        // Redirigir automáticamente después de 10 segundos
+        const timer = setTimeout(() => {
+            navigate('/');
+        }, 10000);
+
+        return () => clearTimeout(timer);
+    }, [searchParams.get('order_id')]); // Only depend on order_id to prevent infinite loops
 
     return (
         <div className="min-h-screen pt-24 pb-12 bg-gradient-to-br from-gray-100 via-white to-gray-200">
@@ -27,23 +85,39 @@ const PaymentSuccessPage = () => {
                         <div className="text-center mb-8">
                             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <CheckCircle size={32} className="text-green-600" />
-                            </div>
-                            <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Pago Confirmado!</h2>
+                            </div>                            <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Pago Confirmado!</h2>
                             <p className="text-gray-600">
-                                Tu pago ha sido procesado exitosamente por Mercado Pago.
+                                Tu pago ha sido procesado exitosamente y tu pedido está siendo preparado.
                             </p>
                         </div>
+
+                        {/* Order Info */}
+                        {orderInfo && (
+                            <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
+                                <h3 className="font-semibold text-gray-800 mb-2">Información del Pedido:</h3>
+                                <p className="text-sm text-gray-600">
+                                    <strong>Pedido #:</strong> {orderInfo.orderId}
+                                </p>
+                                {orderInfo.paymentId && (
+                                    <p className="text-sm text-gray-600">
+                                        <strong>ID de Pago:</strong> {orderInfo.paymentId}
+                                    </p>
+                                )}
+                                <p className="text-sm text-gray-600">
+                                    <strong>Estado:</strong> <span className="text-green-600">Confirmado</span>
+                                </p>
+                            </div>
+                        )}
 
                         {/* Success Details */}
                         <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
                             <h3 className="text-sm font-medium text-green-800 mb-2 flex items-center">
                                 <CheckCircle size={16} className="mr-2" />
                                 Tu transacción fue exitosa
-                            </h3>
-                            <ul className="text-sm text-green-700 space-y-1">
+                            </h3>                            <ul className="text-sm text-green-700 space-y-1">
                                 <li>• El pago se procesó correctamente</li>
-                                <li>• Tu pedido está siendo preparado</li>
-                                <li>• El estado de tu pedido se actualizará en tiempo real</li>
+                                <li>• Tu pedido está registrado en nuestro sistema</li>
+                                <li>• El envío será programado según tu dirección</li>
                             </ul>
                         </div>
 
@@ -73,9 +147,8 @@ const PaymentSuccessPage = () => {
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-                            <Link
-                                to="/orders"
+                        <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">                            <Link
+                                to="/profile"
                                 className="inline-flex items-center justify-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                             >
                                 <Receipt size={18} className="mr-2" />

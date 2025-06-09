@@ -5,6 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, CreditCard, Truck, CheckCircle2 } from 'lucide-react';
 import api from '../services/api';
 import addressesService from '../services/addressesService';
+import ordersService from '../services/ordersService';
+import paymentsService from '../services/paymentsService';
 import useAddresses from '../hooks/useAddresses';
 import toast from 'react-hot-toast';
 
@@ -36,12 +38,11 @@ const CheckoutPage = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderId, setOrderId] = useState('');  const [addressOption, setAddressOption] = useState('profile'); // 'profile', 'select' o 'new'
-  const [selectedAddressId, setSelectedAddressId] = useState(null);
-  const [newAddress, setNewAddress] = useState({
+  const [selectedAddressId, setSelectedAddressId] = useState(null);  const [newAddress, setNewAddress] = useState({
     calle: '',
     numero: '',
     distrito: '',
-    ciudad: 'Cusco',
+    ciudad: 'Cusco', // Default city
     referencia: '',
   });
   // Cargar datos del usuario cuando el componente se monta
@@ -76,8 +77,7 @@ const CheckoutPage = () => {
       const success = await createAddress(addressData);
       
       if (success) {
-        toast.success('Dirección guardada exitosamente');
-        // Resetear el formulario de nueva dirección
+        toast.success('Dirección guardada exitosamente');        // Resetear el formulario de nueva dirección
         setNewAddress({
           calle: '',
           numero: '',
@@ -113,16 +113,18 @@ const CheckoutPage = () => {
     if (currentStep === 1) {
       // Validar que se tenga una dirección válida antes de proceder
       let hasValidAddress = false;
-        if (addressOption === 'profile') {
+      
+      if (addressOption === 'profile') {
         hasValidAddress = getDefaultAddress() !== null;
       } else if (addressOption === 'select') {
         hasValidAddress = selectedAddressId !== null;
       } else if (addressOption === 'new') {
         // Verificar que todos los campos estén llenos
         hasValidAddress = newAddress.calle && newAddress.numero && 
-                         newAddress.distrito && newAddress.referencia;
+                         newAddress.distrito && newAddress.ciudad && newAddress.referencia;
       }
-        if (!hasValidAddress) {
+      
+      if (!hasValidAddress) {
         setIsSubmitting(false);
         if (addressOption === 'new') {
           toast.error('Por favor, completa todos los campos de la dirección.');
@@ -141,64 +143,166 @@ const CheckoutPage = () => {
     }
     
     if (currentStep === 2) {
-      // Lógica para Mercado Pago
-      const itemsForMercadoPago = cartItems.map(item => ({
-        title: item.product.name,
-        quantity: item.quantity,
-        unit_price: Math.round(parseFloat(item.product.salePrice || item.product.price)),
-        description: item.product.description || undefined,
-      }));
+      // Paso 1: Crear el pedido en la base de datos ANTES de procesar el pago
+      try {        // Preparar datos del checkout para el backend
+        const checkoutData = {
+          items: cartItems.map(item => ({
+            product_id: parseInt(item.product.id), // Convertir string a número para que coincida con id_producto
+            quantity: item.quantity,
+            price: parseFloat(item.product.salePrice || item.product.price)
+          })),
+          monto_total: parseFloat(orderTotal.toFixed(2)), // Total incluyendo envío
+          subtotal: parseFloat(cartTotal.toFixed(2)), // Subtotal sin envío
+          shipping_cost: parseFloat(shippingCost.toFixed(2)), // Costo de envío calculado
+          has_free_shipping: hasStrawberryPackOffer, // Indicador de envío gratis
+          strawberry_packs_subtotal: parseFloat(strawberryPacksSubtotal.toFixed(2)), // Subtotal de paquetes de fresas
+          shipping_info: {
+            firstName: formData.firstName || '',
+            lastName: formData.lastName || '',
+            email: formData.email || '',
+            phone: formData.phone || ''
+          },
+          address_info: {},
+          notes: `Pedido realizado desde el checkout. Envío: ${hasStrawberryPackOffer ? 'GRATIS' : `S/ ${shippingCost.toFixed(2)}`}`
+        };
 
-      // Agregar el costo de envío como un item adicional si no es gratis
-      if (shippingCost > 0) {
-        itemsForMercadoPago.push({
-          title: "Costo de envío",
-          quantity: 1,
-          unit_price: Math.round(shippingCost),
-          description: "Envío a domicilio"
-        });
-      }
-
-      try {
-        // Usar el servicio API configurado
-        const response = await api.post('/create-preference', { items: itemsForMercadoPago });
-
-        setIsSubmitting(false); // Detener el indicador de carga después de la respuesta
-
-        if (response.init_point) {
-          window.location.href = response.init_point;
-        } else if (response.sandbox_init_point) { // Para entorno de pruebas
-          window.location.href = response.sandbox_init_point;
-        } else {
-          console.error('No init_point received from Mercado Pago');
-          alert('Error: No se recibió el punto de inicio para el pago de Mercado Pago.');
-        }
-        // No se limpia el carrito ni se avanza al paso 3 aquí.
-        // Eso ocurrirá después de la redirección de Mercado Pago.
-      } catch (error) {
-        setIsSubmitting(false);
-        console.error('Error creating Mercado Pago preference:', error);
+        // Determinar la información de dirección según la opción seleccionada
+        if (addressOption === 'profile') {
+          const defaultAddr = getDefaultAddress();
+          if (defaultAddr) {
+            checkoutData.address_info = {
+              type: 'profile',
+              address_id: parseInt(defaultAddr.id_direccion)
+            };
+          }
+        } else if (addressOption === 'select' && selectedAddressId) {
+          checkoutData.address_info = {
+            type: 'select',
+            address_id: parseInt(selectedAddressId)
+          };
+        } else if (addressOption === 'new') {
+          checkoutData.address_info = {
+            type: 'new',
+            new_address: {
+              calle: newAddress.calle || '',
+              numero: newAddress.numero || '',
+              distrito: newAddress.distrito || '',
+              ciudad: newAddress.ciudad || 'Cusco', // Default city
+              referencia: newAddress.referencia || ''
+            }
+          };
+        }        console.log('Creando pedido con datos:', checkoutData);
         
-        // Manejar el error con más detalle
-        if (error.data) {
-          console.error('Error details:', error.data);
-          alert(`Error del servidor: ${error.data.error || error.message || 'No se pudo iniciar el pago con Mercado Pago.'}`);
+        // Crear el pedido en la base de datos
+        const orderResponse = await ordersService.createOrder(checkoutData);
+        console.log('Respuesta del servidor:', orderResponse);
+        
+        if (orderResponse && orderResponse.order_id) {
+          const newOrderId = orderResponse.order_id;
+          setOrderId(newOrderId);
+          
+          toast.success('Pedido creado exitosamente. Redirigiendo a Mercado Pago...');
+          
+          // Paso 2: Crear preferencia de Mercado Pago
+          const itemsForMercadoPago = cartItems.map(item => ({
+            title: item.product.name,
+            quantity: item.quantity,
+            unit_price: Math.round(parseFloat(item.product.salePrice || item.product.price)),
+            description: item.product.description || undefined,
+          }));
+
+          // Agregar el costo de envío como un item adicional si no es gratis
+          if (shippingCost > 0) {
+            itemsForMercadoPago.push({
+              title: "Costo de envío",
+              quantity: 1,
+              unit_price: Math.round(shippingCost),
+              description: "Envío a domicilio"
+            });
+          }          // Crear preferencia de Mercado Pago con referencia al pedido
+          const mercadoPagoData = {
+            items: itemsForMercadoPago,
+            external_reference: newOrderId.toString(),
+            back_urls: {
+              success: `${window.location.origin}/register/pago-exitoso?order_id=${newOrderId}`,
+              failure: `${window.location.origin}/register/pago-fallido?order_id=${newOrderId}`,
+              pending: `${window.location.origin}/register/pago-pendiente?order_id=${newOrderId}`
+            }
+          };
+
+          const response = await api.post('/create-preference', mercadoPagoData);
+          
+          setIsSubmitting(false); // Detener el indicador de carga después de la respuesta
+
+          if (response.init_point) {
+            window.location.href = response.init_point;
+          } else if (response.sandbox_init_point) { // Para entorno de pruebas
+            window.location.href = response.sandbox_init_point;
+          } else {
+            console.error('No init_point received from Mercado Pago');
+            toast.error('Error: No se recibió el punto de inicio para el pago de Mercado Pago.');
+          }
         } else {
-          console.error('Network error or other issue with Mercado Pago:', error);
-          alert('Error de conexión al intentar procesar el pago con Mercado Pago.');
+          throw new Error('Error al crear el pedido: No se recibió order_id');
+        }} catch (error) {
+        setIsSubmitting(false);
+        console.error('Error en el proceso de checkout:', error);
+        
+        // Acceder a los datos del error de manera más robusta
+        let errorData = null;
+        if (error.response) {
+          errorData = error.response.data;
+        } else if (error.data) {
+          errorData = error.data;
+        }
+        
+        console.log('Error data:', errorData);
+          if (errorData) {
+          // Si hay errores de validación específicos (422), mostrarlos
+          if (error.response?.status === 422 && errorData.error) {
+            const validationErrors = errorData.error;
+            console.log('Validation errors:', validationErrors);
+            
+            let errorMessages = [];
+              // Convertir los errores de validación en un array de mensajes
+            if (typeof validationErrors === 'object' && validationErrors !== null) {
+              Object.keys(validationErrors).forEach(field => {
+                if (Array.isArray(validationErrors[field])) {
+                  validationErrors[field].forEach(msg => {
+                    errorMessages.push(`${field}: ${msg}`);
+                  });
+                } else {
+                  // Convertir a string si no es array
+                  errorMessages.push(`${field}: ${String(validationErrors[field])}`);
+                }
+              });
+            } else {
+              // Convertir a string si no es un objeto
+              errorMessages.push(String(validationErrors));
+            }
+              // Mostrar cada error por separado
+            errorMessages.forEach(msg => {
+              // Asegurar que el mensaje es una cadena antes de mostrarlo
+              const errorMsg = typeof msg === 'string' ? msg : JSON.stringify(msg);
+              toast.error(errorMsg);
+            });
+          } else {
+            toast.error(errorData.message || errorData.error || 'Error en el checkout');
+          }
+        } else if (error.message) {
+          toast.error(error.message);
+        } else {
+          toast.error('Error de conexión. Por favor, intenta de nuevo.');
         }
       }
-
     } else {
       // Lógica para otros pasos (avanzar al siguiente paso)
-      // La generación de orderId, updateProfile y clearCart se movieron de aquí
-      // ya que deben ocurrir DESPUÉS de un pago exitoso.
       setTimeout(() => {
         setIsSubmitting(false);
         setCurrentStep(currentStep + 1);
       }, 1500); // Simulación de carga
     }
-  };  // Calcular costos adicionales
+  };
   // OFERTA: Envío gratis para cualquier combinación de paquetes de fresas (categoryId: '1') si el subtotal de esos productos es >= 30
   const strawberryPackCategoryId = '1';
   
