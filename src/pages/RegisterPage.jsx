@@ -143,7 +143,34 @@ const RegisterPage = () => {
       toast.success('¡Registro exitoso!');
       navigate('/');
     } catch (error) {
-      toast.error('Error al crear la cuenta');
+      // Mostrar mensaje detallado de error para el usuario
+      const errorMsg = error.message || 'Error al crear la cuenta';
+      toast.error(errorMsg);
+      
+      // Si hay errores de validación específicos, actualizamos el estado de errores del formulario
+      if (error.validationErrors) {
+        const serverErrors = {};
+        
+        // Mapear errores del servidor a los campos del formulario
+        if (error.validationErrors.email) {
+          serverErrors.email = error.validationErrors.email[0];
+        }
+        if (error.validationErrors.password) {
+          serverErrors.password = error.validationErrors.password[0];
+        }
+        if (error.validationErrors.nombre || error.validationErrors.name) {
+          serverErrors.firstName = (error.validationErrors.nombre || error.validationErrors.name)[0];
+        }
+        if (error.validationErrors.apellidos || error.validationErrors.lastName) {
+          serverErrors.lastName = (error.validationErrors.apellidos || error.validationErrors.lastName)[0];
+        }
+        if (error.validationErrors.telefono || error.validationErrors.phone) {
+          serverErrors.phone = (error.validationErrors.telefono || error.validationErrors.phone)[0];
+        }
+        
+        setErrors(prev => ({...prev, ...serverErrors}));
+      }
+      
       console.error('Error de registro:', error);
     } finally {
       setIsLoading(false);

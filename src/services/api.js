@@ -71,13 +71,21 @@ api.interceptors.response.use(
       }
       
       // Crear error personalizado con información útil
-      const customError = new Error(
-        data?.message || 
-        data?.error || 
-        `HTTP ${status}: ${error.response.statusText}`
-      );
+      let errorMessage = data?.message || data?.error || `HTTP ${status}: ${error.response.statusText}`;
+      
+      // Manejo especial para errores de validación (422)
+      if (status === 422 && data?.errors) {
+        // Convertir errores de validación en un mensaje legible
+        const validationErrors = Object.values(data.errors)
+          .flat()
+          .join('\n• ');
+        errorMessage = `Error de validación:\n• ${validationErrors}`;
+      }
+      
+      const customError = new Error(errorMessage);
       customError.status = status;
       customError.data = data;
+      customError.validationErrors = data?.errors; // Para acceso directo a errores específicos
       
       // Para errores de validación (422)
       if (status === 422 && data?.errors) {

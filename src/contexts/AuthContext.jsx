@@ -246,12 +246,17 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Registration failed:', error);
 
-      // El manejo de errores es más limpio con los interceptors
-      if (error.status === 422) {
-        throw new Error(error.message); // Ya formateado por el interceptor
+      // Manejo mejorado de errores
+      if (error.status === 422 && error.validationErrors) {
+        // Devolver un mensaje más detallado para la UI
+        const errorMessage = error.message || 'Error en el formulario de registro';
+        const enhancedError = new Error(errorMessage);
+        enhancedError.validationErrors = error.validationErrors;
+        throw enhancedError;
       }
 
-      throw error;
+      // Para otro tipo de errores
+      throw new Error(error.message || 'Error al crear la cuenta. Por favor intente nuevamente.');
     } finally {
       setIsLoading(false);
     }

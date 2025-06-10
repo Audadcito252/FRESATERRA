@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // URL base de la API - Ajusta esto a la URL donde se está ejecutando tu API Laravel
-const API_URL = 'http://localhost:8000/api/v1/Email';
+const API_URL = 'http://localhost:8000/api/v1';
 
 // Configurar Axios con opciones globales
 const apiClient = axios.create({
@@ -14,9 +14,16 @@ const apiClient = axios.create({
   timeout: 30000 // 30 segundos
 });
 
-// Interceptor para logs (útil para debuggear)
+// Interceptor para agregar token de autenticación y logs
 apiClient.interceptors.request.use(request => {
   console.log('Haciendo solicitud a notificaciones:', request.url);
+  
+  // Agregar token de autenticación si existe
+  const token = localStorage.getItem('token');
+  if (token) {
+    request.headers.Authorization = `Bearer ${token}`;
+  }
+  
   return request;
 });
 
@@ -72,11 +79,12 @@ class NotificacionesService {
 
   /**
    * Obtener notificaciones del usuario autenticado
+   * @param {Object} params - Parámetros de filtrado
    * @returns {Promise} Promesa con las notificaciones del usuario
    */
-  async getUserNotifications() {
+  async getUserNotifications(params = {}) {
     try {
-      const response = await apiClient.get('/user');
+      const response = await apiClient.get('/me/notificaciones', { params });
       return response.data;
     } catch (error) {
       console.error('Error al obtener notificaciones del usuario:', error);
@@ -90,7 +98,9 @@ class NotificacionesService {
    */
   async getUnreadNotifications() {
     try {
-      const response = await apiClient.get('/unread');
+      const response = await apiClient.get('/me/notificaciones', { 
+        params: { unread_only: true } 
+      });
       return response.data;
     } catch (error) {
       console.error('Error al obtener notificaciones no leídas:', error);
