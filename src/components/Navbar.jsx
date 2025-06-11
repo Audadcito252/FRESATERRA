@@ -106,9 +106,11 @@ const Navbar = () => {
             </Link>
             <Link to="/products" className="text-gray-800 hover:text-red-600 transition-colors">
               Productos
-            </Link>
-            <Link to="/about" className="text-gray-800 hover:text-red-600 transition-colors">
+            </Link>            <Link to="/about" className="text-gray-800 hover:text-red-600 transition-colors">
               Nosotros
+            </Link>
+            <Link to="/contact" className="text-gray-800 hover:text-red-600 transition-colors">
+              Contacto
             </Link>
           </nav>
 
@@ -223,13 +225,18 @@ const Navbar = () => {
                 <Link to="/products" className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-50">
                   <Package size={18} className="mr-3" />
                   Productos
-                </Link>
-                <Link to="/about" className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-50">
+                </Link>                <Link to="/about" className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-50">
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3">
                     <circle cx="12" cy="8" r="5" />
                     <path d="M20 21a8 8 0 0 0-16 0" />
                   </svg>
                   Nosotros
+                </Link>
+                <Link to="/contact" className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-50">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                  Contacto
                 </Link>
                 {isAuthenticated ? (
                   <>

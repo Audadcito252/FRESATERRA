@@ -21,6 +21,11 @@ import RegisterPage from './pages/RegisterPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import NotFoundPage from './pages/NotFoundPage';
 import AboutPage from './pages/AboutPage';
+import ContactPage from './pages/ContactPage';
+import FAQPage from './pages/FAQPage';
+import ShippingPage from './pages/ShippingPage';
+import TermsPage from './pages/TermsPage';
+import PrivacyPage from './pages/PrivacyPage';
 import PaymentFailedPage from './pages/PaymentFailedPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import PaymentPendingPage from './pages/PaymentPendingPage';
@@ -37,10 +42,11 @@ function App() {
           <Toaster position="top-center" />
           <Routes>
             <Route path="/" element={<MainLayout />}>
-              <Route index element={<HomePage />} />
-              <Route path="products" element={<ProductsPage />} />
-              <Route path="products/:id" element={<ProductDetailPage />} />
-              <Route path="about" element={<AboutPage />} />
+              <Route index element={<HomePage />} />              <Route path="products" element={<ProductsPage />} />
+              <Route path="products/:id" element={<ProductDetailPage />} />              <Route path="about" element={<AboutPage />} />              <Route path="contact" element={<ContactPage />} />              <Route path="faq" element={<FAQPage />} />
+              <Route path="shipping" element={<ShippingPage />} />
+              <Route path="terms" element={<TermsPage />} />
+              <Route path="privacy" element={<PrivacyPage />} />
               <Route path="cart" element={<CartPage />} />
               <Route path="checkout" element={
                 <ProtectedRoute>
