@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { ShoppingCartProvider } from './contexts/ShoppingCartContext';
 import { AuthProvider } from './contexts/AuthContext';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 
 // Layouts
 import MainLayout from './layouts/MainLayout';
@@ -35,30 +37,38 @@ function App() {
           v7_relativeSplatPath: true
         }}>
           <Toaster position="top-center" />
-          <Routes>
-            <Route path="/" element={<MainLayout />}>
-              <Route index element={<HomePage />} />
-              <Route path="products" element={<ProductsPage />} />
-              <Route path="products/:id" element={<ProductDetailPage />} />
-              <Route path="about" element={<AboutPage />} />
-              <Route path="cart" element={<CartPage />} />
-              <Route path="checkout" element={
-                <ProtectedRoute>
-                  <CheckoutPage />
-                </ProtectedRoute>
-              } />              <Route path="order-confirmation/:id" element={<OrderConfirmationPage />} />              <Route path="pago-exitoso" element={<PaymentSuccessPage />} />
-              <Route path="pago-fallido" element={<PaymentFailedPage />} />
-              <Route path="pago-pendiente" element={<PaymentPendingPage />} />
-              <Route path="register/pago-exitoso" element={<PaymentSuccessPage />} />
-              <Route path="register/pago-fallido" element={<PaymentFailedPage />} />
-              <Route path="profile" element={<ProfilePage />} />
-              <Route path="orders" element={<OrdersPage />} />
-              <Route path="login" element={<LoginPage />} />
-              <Route path="register" element={<RegisterPage />} />
-              <Route path="reset-password" element={<ResetPasswordPage />} />
-              <Route path="*" element={<NotFoundPage />} />
-            </Route>
-          </Routes>
+          <div className="min-h-screen flex flex-col">
+            <Navbar />
+            <main className="flex-grow pt-16">
+              <Routes>
+                <Route path="/" element={<MainLayout />}>
+                  <Route index element={<HomePage />} />
+                  <Route path="products" element={<ProductsPage />} />
+                  <Route path="products/:id" element={<ProductDetailPage />} />
+                  <Route path="about" element={<AboutPage />} />
+                  <Route path="cart" element={<CartPage />} />
+                  <Route path="checkout" element={
+                    <ProtectedRoute>
+                      <CheckoutPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="order-confirmation/:id" element={<OrderConfirmationPage />} />
+                  <Route path="pago-exitoso" element={<PaymentSuccessPage />} />
+                  <Route path="pago-fallido" element={<PaymentFailedPage />} />
+                  <Route path="pago-pendiente" element={<PaymentPendingPage />} />
+                  <Route path="register/pago-exitoso" element={<PaymentSuccessPage />} />
+                  <Route path="register/pago-fallido" element={<PaymentFailedPage />} />
+                  <Route path="profile" element={<ProfilePage />} />
+                  <Route path="orders" element={<OrdersPage />} />
+                  <Route path="login" element={<LoginPage />} />
+                  <Route path="register" element={<RegisterPage />} />
+                  <Route path="reset-password" element={<ResetPasswordPage />} />
+                  <Route path="*" element={<NotFoundPage />} />
+                </Route>
+              </Routes>
+            </main>
+            <Footer />
+          </div>
         </Router>
       </ShoppingCartProvider>
     </AuthProvider>
