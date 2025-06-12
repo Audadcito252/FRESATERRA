@@ -41,17 +41,23 @@ api.interceptors.request.use(
 // Response interceptor - Manejo global de errores
 api.interceptors.response.use(
   (response) => {
-    // Log para debugging (remover en producción)
-    console.log('API Response:', {
-      status: response.status,
-      data: response.data,
-      url: response.config.url
-    });
+    // Solo log para debugging en desarrollo
+    if (process.env.NODE_ENV === 'development') {
+      console.log('API Response:', {
+        status: response.status,
+        url: response.config.url
+      });
+    }
     
     return response.data; // Retornar solo los datos
   },
   (error) => {
-    console.error('API Error:', error);
+    // No logueamos 404 para my-review como error ya que es comportamiento esperado
+    const isUserReviewNotFound = error.config?.url?.includes('/my-review') && error.response?.status === 404;
+    
+    if (!isUserReviewNotFound) {
+      console.error('API Error:', error);
+    }
 
     // Manejo específico de errores
     if (error.response) {

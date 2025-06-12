@@ -257,16 +257,23 @@ function AuthProvider({ children }) {
         return user;
       } else {
         return response;
-      }
-    } catch (error) {
+      }    } catch (error) {
       console.error('Registration failed:', error);
 
-      // El manejo de errores es más limpio con los interceptors
+      // Handle validation errors specifically
       if (error.status === 422) {
-        throw new Error(error.message); // Ya formateado por el interceptor
+        if (error.validationErrors) {
+          // Format validation errors for display
+          const errorMessages = Object.entries(error.validationErrors)
+            .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+            .join('\n');
+          throw new Error(errorMessages);
+        } else {
+          throw new Error(error.message || 'Error de validación');
+        }
       }
 
-      throw error;
+      throw new Error(error.message || 'Error en el registro');
     } finally {
       setIsLoading(false);
     }
