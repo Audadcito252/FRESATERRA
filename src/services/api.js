@@ -17,8 +17,18 @@ const api = axios.create({
 // Request interceptor - Agregar token automáticamente
 api.interceptors.request.use(
   (config) => {
+    // Token de usuario regular
     const token = localStorage.getItem('token');
-    if (token) {
+    
+    // Token de administrador
+    const adminToken = localStorage.getItem('adminToken');
+    const isAdminRoute = config.url && (config.url.includes('/admin/') || config.url.startsWith('admin/'));
+    
+    // Usar token de admin para rutas administrativas, token regular para otras rutas
+    if (isAdminRoute && adminToken) {
+      config.headers.Authorization = `Bearer ${adminToken}`;
+      console.log('Using admin token for admin route:', config.url);
+    } else if (token && !isAdminRoute) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     
@@ -27,7 +37,8 @@ api.interceptors.request.use(
       method: config.method?.toUpperCase(),
       url: config.url,
       data: config.data,
-      headers: config.headers
+      headers: config.headers,
+      isAdminRoute: isAdminRoute
     });
     
     return config;
@@ -57,16 +68,25 @@ api.interceptors.response.use(
     if (error.response) {
       // El servidor respondió con un error
       const { status, data } = error.response;
-        // Token expirado o no válido
+      // Token expirado o no válido
       if (status === 401) {
         // No redirigir automáticamente si es un intento de login
         const isLoginAttempt = error.config?.url?.includes('/login');
+        const isAdminRoute = error.config?.url && (error.config.url.includes('/admin/') || error.config.url.startsWith('admin/'));
         
         if (!isLoginAttempt) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          // Solo redirigir si NO es un intento de login
-          window.location.href = '/login';
+          if (isAdminRoute) {
+            // Limpiar datos de admin y redirigir al login de admin
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminUser');
+            localStorage.removeItem('isAdminAuthenticated');
+            window.location.href = '/admin/login';
+          } else {
+            // Limpiar datos de usuario regular y redirigir al login regular
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+          }
         }
       }
       

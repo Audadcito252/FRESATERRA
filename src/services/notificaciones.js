@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // URL base de la API - Ajusta esto a la URL donde se está ejecutando tu API Laravel
-const API_URL = 'http://localhost:8000/api/v1';
+const API_URL = 'http://localhost:8000/api/v1/me/notificaciones';
 
 // Configurar Axios con opciones globales
 const apiClient = axios.create({
@@ -14,18 +14,24 @@ const apiClient = axios.create({
   timeout: 30000 // 30 segundos
 });
 
-// Interceptor para agregar token de autenticación y logs
-apiClient.interceptors.request.use(request => {
-  console.log('Haciendo solicitud a notificaciones:', request.url);
-  
-  // Agregar token de autenticación si existe
-  const token = localStorage.getItem('token');
-  if (token) {
-    request.headers.Authorization = `Bearer ${token}`;
+// INTERCEPTOR CRUCIAL - Añadir token de autenticación automáticamente
+apiClient.interceptors.request.use(
+  (config) => {
+    // Obtener el token del localStorage
+    const token = localStorage.getItem('token');
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    console.log('Haciendo solicitud a notificaciones:', config.url);
+    console.log('Con token:', token ? 'Sí' : 'No');
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  
-  return request;
-});
+);
 
 apiClient.interceptors.response.use(
   response => {
@@ -39,6 +45,13 @@ apiClient.interceptors.response.use(
       console.error('Error de conexión de notificaciones: Verifique que el servidor API esté funcionando en', API_URL);
     } else {
       console.error('Error en respuesta de notificaciones:', error.response ? error.response.data : error.message);
+      
+      // Si es error 401, redirigir al login
+      if (error.response.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -79,13 +92,12 @@ class NotificacionesService {
 
   /**
    * Obtener notificaciones del usuario autenticado
-   * @param {Object} params - Parámetros de filtrado
    * @returns {Promise} Promesa con las notificaciones del usuario
    */
-  async getUserNotifications(params = {}) {
+  async getUserNotifications() {
     try {
-      const response = await apiClient.get('/me/notificaciones', { params });
-      return response.data;
+      const response = await apiClient.get('/');
+      return response.data.datos || response.data;
     } catch (error) {
       console.error('Error al obtener notificaciones del usuario:', error);
       throw error;
@@ -98,10 +110,8 @@ class NotificacionesService {
    */
   async getUnreadNotifications() {
     try {
-      const response = await apiClient.get('/me/notificaciones', { 
-        params: { unread_only: true } 
-      });
-      return response.data;
+      const response = await apiClient.get('/unread');
+      return response.data.datos || response.data;
     } catch (error) {
       console.error('Error al obtener notificaciones no leídas:', error);
       throw error;
@@ -111,10 +121,6 @@ class NotificacionesService {
   /**
    * Crear una nueva notificación
    * @param {Object} notificacionData - Datos de la notificación
-   * @param {string} notificacionData.estado - Estado de la notificación
-   * @param {Date} notificacionData.fecha_creacion - Fecha de creación
-   * @param {number} notificacionData.usuarios_id_usuario - ID del usuario
-   * @param {number} notificacionData.mensajes_id_mensaje - ID del mensaje
    * @returns {Promise} Promesa con la notificación creada
    */
   async crearNotificacion(notificacionData) {
@@ -130,9 +136,6 @@ class NotificacionesService {
   /**
    * Crear notificación usando mensaje existente
    * @param {Object} data - Datos para crear la notificación
-   * @param {number} data.user_id - ID del usuario
-   * @param {number} data.mensaje_id - ID del mensaje
-   * @param {string} data.tipo - Tipo de notificación
    * @returns {Promise} Promesa con la notificación creada
    */
   async notificarConMensaje(data) {
@@ -204,6 +207,13 @@ class NotificacionesService {
       throw error;
     }
   }
+  
+  /**
+   * Eliminar notificación del usuario (alias para compatibilidad)
+   */
+  async deleteUserNotification(id) {
+    return this.eliminarNotificacion(id);
+  }
 
   /**
    * Obtener la lista de mensajes disponibles
@@ -212,7 +222,13 @@ class NotificacionesService {
   async getMensajes() {
     try {
       // Endpoint separado para obtener mensajes
-      const response = await axios.get('http://localhost:8000/api/v1/messages');
+      const response = await axios.get('http://localhost:8000/api/v1/messages', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
       return response.data;
     } catch (error) {
       console.error('Error al obtener mensajes:', error);
