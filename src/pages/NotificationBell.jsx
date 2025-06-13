@@ -82,15 +82,16 @@ const NotificationBell = () => {
   if (!isAuthenticated) {
     return null;
   }
-
   return (
-    <div className="relative" ref={dropdownRef}>
-      {/* Botón de campana */}      <button
+    <div className="relative flex items-center h-full" ref={dropdownRef}>
+      {/* Botón de campana */}
+      <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative text-gray-600 hover:text-red-600 transition-colors"
+        className="relative text-gray-600 hover:text-red-600 transition-colors flex items-center justify-center"
+        aria-label="Notificaciones"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5-5-5h5v-5a7.5 7.5 0 0 0-15 0v5h5l-5 5-5-5h5V9a9.5 9.5 0 0 1 19 0v8z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
         
         {/* Badge de contador */}
