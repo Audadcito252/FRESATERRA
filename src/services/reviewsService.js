@@ -2,7 +2,8 @@ import api from './api';
 
 export const reviewsService = {  // Obtener todas las reseñas de un producto
   getProductReviews: async (productId) => {
-    try {      const response = await api.get(`/productos/${productId}/reviews`);
+    try {
+      const response = await api.get(`/products/${productId}/reviews`);
       
       // Check if response.data has the expected structure
       if (response.data && response.data.data) {
@@ -32,7 +33,7 @@ export const reviewsService = {  // Obtener todas las reseñas de un producto
   },  // Obtener la reseña del usuario actual para un producto
   getUserReview: async (productId) => {
     try {
-      const response = await api.get(`/productos/${productId}/my-review`);
+      const response = await api.get(`/products/${productId}/my-review`);
         // Check if response.data has the expected structure
       if (response.data && response.data.data) {
         return {

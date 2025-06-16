@@ -9,12 +9,12 @@ const ProductCard = ({ product }) => {
   const { addToCart } = useShoppingCart();
   const { user } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
-    // Verifica si el usuario ha dejado una reseña para este producto
-  const hasUserReview = user && product.reviews.some(review => review.userId === user.id);
+  
+  // Verifica si el usuario ha dejado una reseña para este producto
+  const hasUserReview = user && product.reviews && product.reviews.some(review => review.userId === user.id);
 
-  // Lista de productos permitidos para agregar al carrito
-  const allowedProductIds = ['1', '2', '3']; // Delicia Andina - 1kg, Doble Dulzura - 2kg, Frescura Familiar - 5kg
-  const isProductAllowed = allowedProductIds.includes(product.id);
+  // Verificar si el producto está disponible
+  const isProductAllowed = product.inStock;
 
   const handleAddToCart = (e) => {
     e.preventDefault();
@@ -107,22 +107,20 @@ const ProductCard = ({ product }) => {
 
         {/* Información del producto */}
         <div className="p-4">
-          <h3 className="text-lg font-medium text-gray-800 line-clamp-1">{product.name}</h3>          
-          {/* Ratings */}
+          <h3 className="text-lg font-medium text-gray-800 line-clamp-1">{product.name}</h3>            {/* Ratings */}
           <div className="flex items-center mt-1">
             {[...Array(5)].map((_, i) => (
               <Star
                 key={i}
                 size={16}
                 className={`${
-                  i < Math.round(product.averageRating)
+                  i < Math.round(product.averageRating || 0)
                     ? 'text-yellow-500 fill-yellow-500'
                     : 'text-gray-300'
                 }`}
               />
-            ))}
-            <span className="ml-1 text-sm text-gray-500">
-              ({product.reviews.length})
+            ))}            <span className="ml-1 text-sm text-gray-500">
+              ({product.totalReviews || 0})
             </span>
             {/* Indicador de reseña del usuario */}
             {hasUserReview && (
@@ -144,17 +142,16 @@ const ProductCard = ({ product }) => {
               <span className="text-lg font-bold text-gray-800">S/ {product.price.toFixed(2)}</span>
             )}
           </div>
-          
-          {/* Stock Status */}
+            {/* Stock Status */}
           <div className="mt-2 text-sm">
             {!isProductAllowed ? (
               <span className="text-red-600 font-medium">Producto no disponible</span>
-            ) : product.stock > 10 ? (
+            ) : (product.stock || 0) > 10 ? (
               <span className="text-green-600">En stock</span>
-            ) : product.stock > 0 ? (
-              <span className="text-orange-500">Bajo Stock ({product.stock} cantidad)</span>
+            ) : (product.stock || 0) > 0 ? (
+              <span className="text-orange-500">Bajo Stock ({product.stock || 0} cantidad)</span>
             ) : (
-              <span className="text-red-600">Out of Stock</span>
+              <span className="text-red-600">Sin stock</span>
             )}
           </div>
         </div>

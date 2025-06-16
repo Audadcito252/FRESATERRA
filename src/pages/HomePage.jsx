@@ -2,32 +2,109 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Star, Truck } from 'lucide-react'; // Iconos necesarios
 import ProductCard from '../components/ProductCard';
-import { mockProducts, mockCategories } from '../data/mockData';
+import { productsService } from '../services/productsService';
 
-// Función para obtener la imagen adecuada según la categoría
-const getCategoryImage = (slug) => {
-  switch (slug) {
-    case 'fresh-strawberry-packs':
-      return '/img/paquetesfresas.jpg'; // Imagen local desde la carpeta public/img
-    case 'jams':
-      return '/img/mermeladasfresas.jpg'; // Imagen local desde la carpeta public/img
-    case 'dried-strawberries':
-      return '/img/deshidratadasfresas.jpg'; // Imagen local desde la carpeta public/img;
-    case 'special-bundles':
-      return '/img/combosfresas.jpg'; // Imagen local desde la carpeta public/img;
-    default:
-      return 'https://images.pexels.com/photos/1703272/pexels-photo-1703272.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2';
+// Función para obtener la imagen adecuada según la categoría del backend
+const getCategoryImage = (categoryName) => {
+  const normalizedName = categoryName.toLowerCase();
+  
+  if (normalizedName.includes('paquetes')) {
+    return '/img/paquetesfresas.jpg';
+  } else if (normalizedName.includes('mermeladas')) {
+    return '/img/mermeladasfresas.jpg';
+  } else if (normalizedName.includes('deshidratadas')) {
+    return '/img/deshidratadasfresas.jpg';
+  } else if (normalizedName.includes('combos') || normalizedName.includes('especiales')) {
+    return '/img/combosfresas.jpg';
+  } else {
+    return 'https://images.pexels.com/photos/1703272/pexels-photo-1703272.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2';
   }
 };
 
 const HomePage = () => {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [bestSellers, setBestSellers] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // En una app real, estos serían llamados a una API
-    setFeaturedProducts(mockProducts.filter(product => product.featured).slice(0, 4));
-    setBestSellers(mockProducts.slice(0, 4));
+    const fetchFeaturedProducts = async () => {
+      try {
+        setLoading(true);
+        setError(null);        // Obtener productos destacados y categorías del backend
+        const [productsResponse, categoriesResponse] = await Promise.all([
+          productsService.getFeaturedProducts(),
+          productsService.getCategories()
+        ]);
+        
+        console.log('Featured products response:', productsResponse);
+        console.log('Categories response:', categoriesResponse);
+        
+        // Transformar datos del backend al formato del frontend
+        // Nota: /products/featured devuelve data directamente, no data.data como /products
+        const productsData = productsResponse.data.data || productsResponse.data;
+        console.log('Products data to transform:', productsData);
+        
+        if (!Array.isArray(productsData)) {
+          throw new Error('La respuesta no contiene un array de productos válido');
+        }
+        
+        const transformedProducts = productsData.map(product => {
+          // Usar la URL completa que viene del backend
+          let imageUrl = '';
+          if (product.url_imagen_completa) {
+            imageUrl = product.url_imagen_completa;
+          } else {
+            // Fallback: construir URL manualmente si no viene la completa
+            imageUrl = product.url_imagen ? 
+              `http://127.0.0.1:8000/storage/${product.url_imagen}` : 
+              '/images/placeholder-strawberry.jpg';
+          }
+
+          return {
+            id: product.id_producto.toString(),
+            name: product.nombre,
+            description: product.descripcion,
+            price: parseFloat(product.precio),
+            salePrice: null, // Backend doesn't have sale prices yet
+            images: [imageUrl],
+            categoryId: product.categorias_id_categoria,
+            featured: true, // Los productos destacados son featured por definición
+            inStock: product.estado === 'activo',
+            weight: product.peso,            stock: 100, // Placeholder since backend doesn't track stock yet
+            averageRating: product.comentarios_avg_calificacion ? parseFloat(product.comentarios_avg_calificacion) : 0,
+            totalReviews: product.comentarios_count || 0,
+            reviews: [] // Placeholder reviews array
+          };        });
+        
+        // Transformar categorías del backend
+        const transformedCategories = categoriesResponse.data.map(category => ({
+          id: category.id_categoria,
+          name: category.nombre,
+          slug: category.nombre.toLowerCase().replace(/\s+/g, '-').replace(/[áàäâ]/g, 'a').replace(/[éèëê]/g, 'e').replace(/[íìïî]/g, 'i').replace(/[óòöô]/g, 'o').replace(/[úùüû]/g, 'u')
+        }));
+        
+        setFeaturedProducts(transformedProducts);
+        setBestSellers(transformedProducts.slice(0, 4)); // Usar los mismos productos como best sellers por ahora
+        setCategories(transformedCategories);
+          } catch (err) {
+        console.error('Error fetching featured products:', err);
+        console.error('Error details:', {
+          message: err.message,
+          response: err.response?.data,
+          status: err.response?.status
+        });        setError('Error al cargar los datos');
+        // En caso de error, usar arrays vacíos para que no se rompa la UI
+        setFeaturedProducts([]);
+        setBestSellers([]);
+        setCategories([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchFeaturedProducts();
   }, []);
 
   useEffect(() => {
@@ -57,16 +134,15 @@ const HomePage = () => {
       {/* Categories Section */}
       <section className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">Compra por categoría</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {mockCategories.map(category => (
+          <h2 className="text-3xl font-bold text-center mb-12">Compra por categoría</h2>          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {categories.map(category => (
               <Link 
-                to={`/products?category=${category.slug}`}
+                to={`/products?category=${category.id}`}
                 key={category.id}
                 className="group relative rounded-lg overflow-hidden h-40 shadow-md hover:shadow-lg transition-shadow"
               >
                 <img 
-                  src={getCategoryImage(category.slug)} 
+                  src={getCategoryImage(category.name)} 
                   alt={category.name}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                 />
@@ -113,9 +189,7 @@ const HomePage = () => {
         {/* Decorative elements */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-white bg-opacity-10 rounded-full -translate-y-16 translate-x-16"></div>
         <div className="absolute bottom-0 left-0 w-24 h-24 bg-white bg-opacity-10 rounded-full translate-y-12 -translate-x-12"></div>
-      </section>
-
-      {/* Featured Products Section */}
+      </section>      {/* Featured Products Section */}
       <section className="py-16">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center mb-8">
@@ -127,11 +201,39 @@ const HomePage = () => {
               Ver todos <ChevronRight size={16} />
             </Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredProducts.map(product => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, index) => (
+                <div key={index} className="bg-white rounded-lg shadow-md p-4 animate-pulse">
+                  <div className="bg-gray-300 h-56 rounded-lg mb-4"></div>
+                  <div className="bg-gray-300 h-4 rounded mb-2"></div>
+                  <div className="bg-gray-300 h-4 rounded w-2/3 mb-2"></div>
+                  <div className="bg-gray-300 h-4 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <p className="text-gray-600 mb-4">{error}</p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
+              >
+                Intentar de nuevo
+              </button>
+            </div>
+          ) : featuredProducts.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-600">No hay productos destacados disponibles en este momento.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredProducts.map(product => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -161,9 +263,7 @@ const HomePage = () => {
             </div>
           </div>
         </div>
-      </section>
-
-      {/* Best Sellers Section */}
+      </section>      {/* Best Sellers Section */}
       <section className="py-16">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center mb-8">
@@ -175,13 +275,31 @@ const HomePage = () => {
               Ver todos <ChevronRight size={16} />
             </Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {bestSellers.map(product => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, index) => (
+                <div key={index} className="bg-white rounded-lg shadow-md p-4 animate-pulse">
+                  <div className="bg-gray-300 h-56 rounded-lg mb-4"></div>
+                  <div className="bg-gray-300 h-4 rounded mb-2"></div>
+                  <div className="bg-gray-300 h-4 rounded w-2/3 mb-2"></div>
+                  <div className="bg-gray-300 h-4 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
+          ) : bestSellers.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-600">No hay productos disponibles en este momento.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {bestSellers.map(product => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          )}
         </div>
-      </section>      {/* Testimonials Section */}
+      </section>{/* Testimonials Section */}
       <section className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12">Lo que opinan nuestros clientes</h2>

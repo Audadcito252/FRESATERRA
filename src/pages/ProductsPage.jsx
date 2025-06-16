@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Filter, ChevronDown, Search, X } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
-import { mockProducts, mockCategories } from '../data/mockData';
+import { productsService } from '../services/productsService';
 
 const ProductsPage = () => {
   const location = useLocation();
@@ -10,118 +10,200 @@ const ProductsPage = () => {
   
   // Parse URL parameters
   const initialCategory = searchParams.get('category') || '';
-  const initialSearchQuery = searchParams.get('search') || '';
-  
-  // State for products and filters
+  const initialSearchQuery = searchParams.get('search') || '';  // State for products and filters
   const [products, setProducts] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
-  const [sortOption, setSortOption] = useState('relevance');
+  const [sortOption, setSortOption] = useState('relevancia');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [stats, setStats] = useState(null);
   
-  // Precio mínimo y máximo
-  const [minPrice, setMinPrice] = useState(0);
-  const [maxPrice, setMaxPrice] = useState(100);
+  // Filtros de precio dinámicos
   const [priceRange, setPriceRange] = useState([0, 100]);
-
-  // Get products data
-  useEffect(() => {
-    // In a real app, these would be API calls
-    setProducts(mockProducts);
-    setCategories(mockCategories);
-    
-    // Encontrar el precio mínimo y máximo real en los productos
-    if (mockProducts.length > 0) {
-      const productPrices = mockProducts.map(p => p.salePrice || p.price);
-      const calculatedMinPrice = Math.floor(Math.min(...productPrices));
-      const calculatedMaxPrice = Math.ceil(Math.max(...productPrices));
+  const [minRating, setMinRating] = useState(0);
+  const [showOnlyAvailable, setShowOnlyAvailable] = useState(true);
+  
+  // Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);  // Fetch data from backend
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
       
-      setMinPrice(calculatedMinPrice);
-      setMaxPrice(calculatedMaxPrice);
-      setPriceRange([calculatedMinPrice, calculatedMaxPrice]);
-    }
-  }, []);
+      // Construir filtros para el backend
+      const filters = {
+        ordenar: sortOption,
+        direccion: sortOption === 'priceHigh' || sortOption === 'nameZA' ? 'desc' : 'asc',
+        solo_disponibles: showOnlyAvailable,
+        page: currentPage,
+        por_pagina: 12
+      };
 
-  // Filter and sort products
-  useEffect(() => {
-    let filtered = [...products];
-    
-    // Filter by category
-    if (selectedCategory) {
-      filtered = filtered.filter(product => {
-        const category = categories.find(c => c.slug === selectedCategory);
-        return category ? product.categoryId === category.id : true;
+      // Mapear opciones de ordenamiento frontend a backend
+      switch (sortOption) {
+        case 'priceLow':
+        case 'priceHigh':
+          filters.ordenar = 'precio';
+          break;
+        case 'nameAZ':
+        case 'nameZA':
+          filters.ordenar = 'nombre';
+          break;
+        case 'newest':
+          filters.ordenar = 'fecha_creacion';
+          break;
+        case 'rating':
+          filters.ordenar = 'rating';
+          break;
+        case 'popularidad':
+          filters.ordenar = 'popularidad';
+          break;
+        default:
+          filters.ordenar = 'relevancia';
+          break;
+      }
+      
+      if (selectedCategory) {
+        // Buscar el ID de la categoría si se pasó un slug
+        const category = categories.find(c => 
+          c.id.toString() === selectedCategory || c.slug === selectedCategory
+        );
+        if (category) {
+          filters.categoria = category.id;
+        }
+      }
+      
+      if (searchQuery) {
+        filters.busqueda = searchQuery;
+      }
+      
+      if (priceRange[0] > 0) {
+        filters.precio_min = priceRange[0];
+      }
+      
+      if (priceRange[1] < 1000) { // Usar un valor alto por defecto
+        filters.precio_max = priceRange[1];
+      }
+      
+      if (minRating > 0) {
+        filters.rating_min = minRating;
+      }
+      
+      // Fetch products and categories/stats from backend
+      const promises = [
+        productsService.getProducts(filters)
+      ];
+      
+      // Solo fetch categories y stats si no los tenemos
+      if (categories.length === 0) {
+        promises.push(productsService.getCategories());
+      }
+      
+      if (!stats) {
+        promises.push(productsService.getProductStats());
+      }
+      
+      const results = await Promise.all(promises);
+      const productsResponse = results[0];
+      
+      // Transform backend data to frontend format
+      const transformedProducts = productsResponse.data.data.map(product => {
+        // Usar la URL completa que viene del backend
+        let imageUrl = '';
+        if (product.url_imagen_completa) {
+          imageUrl = product.url_imagen_completa;
+        } else {
+          // Fallback: construir URL manualmente si no viene la completa
+          imageUrl = product.url_imagen ? 
+            `http://127.0.0.1:8000/storage/${product.url_imagen}` : 
+            '/images/placeholder-strawberry.jpg';
+        }
+
+        return {
+          id: product.id_producto.toString(),
+          name: product.nombre,
+          description: product.descripcion,
+          price: parseFloat(product.precio),
+          salePrice: null, // Backend doesn't have sale prices yet
+          images: [imageUrl],
+          categoryId: product.categorias_id_categoria,
+          featured: product.destacado || false,
+          inStock: product.estado === 'activo',
+          weight: product.peso,
+          stock: 100, // Placeholder since backend doesn't track stock yet
+          averageRating: product.comentarios_avg_calificacion ? parseFloat(product.comentarios_avg_calificacion) : 0,
+          totalReviews: product.comentarios_count || 0,
+          reviews: [] // Placeholder reviews array
+        };
       });
+      
+      setProducts(transformedProducts);
+      setTotalProducts(productsResponse.data.total || 0);
+      setTotalPages(productsResponse.data.last_page || 1);
+      
+      // Procesar categorías si se obtuvieron
+      if (results.length > 1 && results[1]) {
+        const categoriesResponse = results[1];
+        const transformedCategories = categoriesResponse.data.map(category => ({
+          id: category.id_categoria,
+          name: category.nombre,
+          slug: category.nombre.toLowerCase().replace(/\s+/g, '-').replace(/[áàäâ]/g, 'a').replace(/[éèëê]/g, 'e').replace(/[íìïî]/g, 'i').replace(/[óòöô]/g, 'o').replace(/[úùüû]/g, 'u')
+        }));
+        setCategories(transformedCategories);
+      }
+      
+      // Procesar estadísticas si se obtuvieron
+      if (results.length > 2 && results[2]) {
+        const statsResponse = results[2];
+        setStats(statsResponse.data);
+        
+        // Inicializar rangos de precio si es la primera vez
+        if (priceRange[0] === 0 && priceRange[1] === 100) {
+          setPriceRange([
+            Math.floor(statsResponse.data.precio.min),
+            Math.ceil(statsResponse.data.precio.max)
+          ]);
+        }
+      }
+      
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(err.message || 'Error al cargar los productos');
+    } finally {
+      setLoading(false);
     }
-    
-    // Filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        product =>
-          product.name.toLowerCase().includes(query) ||
-          product.description.toLowerCase().includes(query)
-      );
-    }
-    
-    // Filter by price range
-    filtered = filtered.filter(product => {
-      const price = product.salePrice || product.price;
-      return price >= priceRange[0] && price <= priceRange[1];
-    });
-    
-    // Sort products
-    switch (sortOption) {
-      case 'priceLow':
-        filtered.sort((a, b) => {
-          const priceA = a.salePrice || a.price;
-          const priceB = b.salePrice || b.price;
-          return priceA - priceB;
-        });
-        break;
-      case 'priceHigh':
-        filtered.sort((a, b) => {
-          const priceA = a.salePrice || a.price;
-          const priceB = b.salePrice || b.price;
-          return priceB - priceA;
-        });
-        break;
-      case 'nameAZ':
-        filtered.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      case 'nameZA':
-        filtered.sort((a, b) => b.name.localeCompare(a.name));
-        break;
-      case 'newest':
-        // In a real app, we would sort by date
-        // For mock data, just leaving the default order
-        break;
-      default:
-        // relevance - in a real app, this would use a more complex algorithm
-        // For mock data, prioritize featured products
-        filtered.sort((a, b) => Number(b.featured) - Number(a.featured));
-        break;
-    }
-    
-    setFilteredProducts(filtered);
-  }, [products, categories, selectedCategory, searchQuery, priceRange, sortOption]);
+  }, [selectedCategory, searchQuery, sortOption, priceRange, minRating, showOnlyAvailable, currentPage, categories, stats]);
 
-  // Reset filters
+  // Fetch data when dependencies change
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);  // Reset filters
   const handleResetFilters = () => {
     setSelectedCategory('');
     setSearchQuery('');
-    // Restablecer al rango de precios inicial calculado de los productos
-    setPriceRange([minPrice, maxPrice]);
-    setSortOption('relevance');
+    setMinRating(0);
+    setShowOnlyAvailable(true);
+    setSortOption('relevancia');
+    setCurrentPage(1);
+    
+    // Restablecer al rango de precios inicial de las estadísticas
+    if (stats) {
+      setPriceRange([
+        Math.floor(stats.precio.min),
+        Math.ceil(stats.precio.max)
+      ]);
+    }
   };
 
   // Scroll to top on mount
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
-
   return (
     <div className="pt-16 md:pt-20 pb-16">
       <div className="bg-gray-100 py-8">
@@ -134,7 +216,43 @@ const ProductsPage = () => {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Mobile filters toggle */}
+        {/* Loading State */}
+        {loading && (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+            <span className="ml-3 text-gray-600">Cargando productos...</span>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && !loading && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <X className="h-5 w-5 text-red-400" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Error al cargar productos</h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>{error}</p>
+                </div>
+                <div className="mt-4">
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="bg-red-600 text-white px-4 py-2 rounded-md text-sm hover:bg-red-700"
+                  >
+                    Reintentar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        {!loading && !error && (
+          <>
+            {/* Mobile filters toggle */}
         <div className="md:hidden mb-4">
           <button
             onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
@@ -193,15 +311,14 @@ const ProductsPage = () => {
                     <label htmlFor="category-all" className="ml-2 text-gray-700">
                       Todos los productos
                     </label>
-                  </div>
-                  {categories.map((category) => (
+                  </div>                  {categories.map((category) => (
                     <div key={category.id} className="flex items-center">
                       <input
                         id={`category-${category.id}`}
                         type="radio"
                         name="category"
-                        checked={selectedCategory === category.slug}
-                        onChange={() => setSelectedCategory(category.slug)}
+                        checked={selectedCategory === category.id.toString() || selectedCategory === category.slug}
+                        onChange={() => setSelectedCategory(category.id.toString())}
                         className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300"
                       />
                       <label htmlFor={`category-${category.id}`} className="ml-2 text-gray-700">
@@ -210,9 +327,7 @@ const ProductsPage = () => {
                     </div>
                   ))}
                 </div>
-              </div>
-
-              <div className="mb-6">
+              </div>              <div className="mb-6">
                 <h3 className="font-medium text-lg mb-3">Rango de precio</h3>
                 <div className="px-2 space-y-6">
                   <div>
@@ -222,8 +337,8 @@ const ProductsPage = () => {
                     <input
                       id="min-price-range"
                       type="range"
-                      min={minPrice}
-                      max={maxPrice}
+                      min={stats ? Math.floor(stats.precio.min) : 0}
+                      max={stats ? Math.ceil(stats.precio.max) : 100}
                       step="1"
                       value={priceRange[0]}
                       onChange={(e) => {
@@ -242,8 +357,8 @@ const ProductsPage = () => {
                     <input
                       id="max-price-range"
                       type="range"
-                      min={minPrice}
-                      max={maxPrice}
+                      min={stats ? Math.floor(stats.precio.min) : 0}
+                      max={stats ? Math.ceil(stats.precio.max) : 100}
                       step="1"
                       value={priceRange[1]}
                       onChange={(e) => {
@@ -261,6 +376,53 @@ const ProductsPage = () => {
                 </div>
               </div>
 
+              {/* Filtro de calificación */}
+              <div className="mb-6">
+                <h3 className="font-medium text-lg mb-3">Calificación mínima</h3>
+                <div className="space-y-2">
+                  {[0, 1, 2, 3, 4].map((rating) => (
+                    <div key={rating} className="flex items-center">
+                      <input
+                        id={`rating-${rating}`}
+                        type="radio"
+                        name="rating"
+                        checked={minRating === rating}
+                        onChange={() => setMinRating(rating)}
+                        className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300"
+                      />
+                      <label htmlFor={`rating-${rating}`} className="ml-2 flex items-center text-gray-700">
+                        {rating === 0 ? (
+                          'Todas las calificaciones'
+                        ) : (
+                          <>
+                            {Array.from({ length: rating }, (_, i) => (
+                              <span key={i} className="text-yellow-400">★</span>
+                            ))}
+                            <span className="ml-1">y más</span>
+                          </>
+                        )}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Filtro de disponibilidad */}
+              <div className="mb-6">
+                <div className="flex items-center">
+                  <input
+                    id="only-available"
+                    type="checkbox"
+                    checked={showOnlyAvailable}
+                    onChange={(e) => setShowOnlyAvailable(e.target.checked)}
+                    className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="only-available" className="ml-2 text-gray-700">
+                    Solo productos disponibles
+                  </label>
+                </div>
+              </div>
+
               <button
                 onClick={handleResetFilters}
                 className="w-full py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-red-500"
@@ -271,11 +433,11 @@ const ProductsPage = () => {
           </div>
 
           {/* Product Grid */}
-          <div className="md:w-3/4">
-            {/* Sort Options */}
+          <div className="md:w-3/4">            {/* Sort Options */}
             <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
               <p className="text-gray-600 mb-2 sm:mb-0">
-                Mostrando {filteredProducts.length} productos
+                Mostrando {products.length} de {totalProducts} productos
+                {currentPage > 1 && ` (Página ${currentPage} de ${totalPages})`}
               </p>
               <div className="flex items-center">
                 <label htmlFor="sort" className="mr-2 text-gray-600">
@@ -284,42 +446,101 @@ const ProductsPage = () => {
                 <select
                   id="sort"
                   value={sortOption}
-                  onChange={(e) => setSortOption(e.target.value)}
+                  onChange={(e) => {
+                    setSortOption(e.target.value);
+                    setCurrentPage(1); // Reset to first page when sorting changes
+                  }}
                   className="border border-gray-300 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-red-500"
                 >
-                  <option value="relevance">Relevancia</option>
+                  <option value="relevancia">Relevancia</option>
                   <option value="priceLow">Precio: menor a mayor</option>
                   <option value="priceHigh">Precio: mayor a menor</option>
                   <option value="nameAZ">Nombre: A-Z</option>
                   <option value="nameZA">Nombre: Z-A</option>
                   <option value="newest">Más nuevos primero</option>
+                  <option value="rating">Mejor calificados</option>
+                  <option value="popularidad">Más populares</option>
                 </select>
               </div>
             </div>
 
             {/* Products */}
-            {filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
+            {products.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {products.map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+                
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="mt-8 flex justify-center">
+                    <nav className="flex items-center space-x-1">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Anterior
+                      </button>
+                      
+                      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                        const pageNum = currentPage <= 3 ? i + 1 : 
+                                      currentPage >= totalPages - 2 ? totalPages - 4 + i :
+                                      currentPage - 2 + i;
+                        
+                        if (pageNum <= 0 || pageNum > totalPages) return null;
+                        
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`px-3 py-2 rounded-md text-sm font-medium ${
+                              currentPage === pageNum
+                                ? 'bg-red-600 text-white'
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                      
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Siguiente
+                      </button>
+                    </nav>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="bg-white rounded-lg shadow-sm p-8 text-center">
                 <h3 className="text-xl font-medium text-gray-800 mb-2">No se encontraron productos</h3>
                 <p className="text-gray-600 mb-4">
-                  Intenta ajustar tu búsqueda o los filtros para encontrar lo que buscas.
+                  {searchQuery || selectedCategory ? 
+                    'Intenta ajustar tu búsqueda o los filtros para encontrar lo que buscas.' :
+                    'No hay productos disponibles en este momento.'
+                  }
                 </p>
-                <button
-                  onClick={handleResetFilters}
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                >
-                  Limpiar filtros
-                </button>
+                {(searchQuery || selectedCategory) && (
+                  <button
+                    onClick={handleResetFilters}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    Limpiar filtros
+                  </button>
+                )}
               </div>
             )}
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
