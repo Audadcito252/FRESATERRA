@@ -235,6 +235,20 @@ class NotificacionesService {
       throw error;
     }
   }
+
+  /**
+   * Limpiar notificaciones de email duplicadas
+   * @returns {Promise} Promesa con la respuesta
+   */
+  async cleanEmailNotifications() {
+    try {
+      const response = await apiClient.delete('/clean-email');
+      return response.data;
+    } catch (error) {
+      console.error('Error al limpiar notificaciones de email:', error);
+      throw error;
+    }
+  }
 }
 
 // Exportamos una instancia del servicio para su uso en componentes
