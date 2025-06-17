@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Filter, ChevronDown, Search, X } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
@@ -10,8 +10,10 @@ const ProductsPage = () => {
   
   // Parse URL parameters
   const initialCategory = searchParams.get('category') || '';
-  const initialSearchQuery = searchParams.get('search') || '';  // State for products and filters
-  const [products, setProducts] = useState([]);
+  const initialSearchQuery = searchParams.get('search') || '';
+  
+  // State for products and filters
+  const [allProducts, setAllProducts] = useState([]); // Todos los productos del backend
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
@@ -20,105 +22,63 @@ const ProductsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState(null);
-  
-  // Filtros de precio dinámicos
+    // Filtros dinámicos (aplicados en frontend)
   const [priceRange, setPriceRange] = useState([0, 100]);
   const [minRating, setMinRating] = useState(0);
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(true);
+    // Estado interno para el input de búsqueda (debounced)
+  const [searchInput, setSearchInput] = useState(initialSearchQuery);
   
-  // Paginación
+  // Estado interno para el rango de precio (debounced)
+  const [priceInputRange, setPriceInputRange] = useState([0, 100]);
+  
+  // Paginación (aplicada en frontend)
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalProducts, setTotalProducts] = useState(0);  // Fetch data from backend
-  const fetchData = useCallback(async () => {
+  const itemsPerPage = 12;
+  
+  // Debounce para la búsqueda
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(searchInput);
+    }, 300); // Esperar 300ms después de que el usuario deje de escribir
+    
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+  
+  // Debounce para el rango de precio
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPriceRange(priceInputRange);
+    }, 150); // Más rápido para los sliders
+    
+    return () => clearTimeout(timer);
+  }, [priceInputRange]);// Función para cargar todos los productos del backend (solo una vez)
+  const fetchAllProducts = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Construir filtros para el backend
+      // Obtener todos los productos sin filtros de backend
       const filters = {
-        ordenar: sortOption,
-        direccion: sortOption === 'priceHigh' || sortOption === 'nameZA' ? 'desc' : 'asc',
-        solo_disponibles: showOnlyAvailable,
-        page: currentPage,
-        por_pagina: 12
+        por_pagina: 1000, // Obtener todos los productos
+        solo_disponibles: false // Obtener todos, incluso no disponibles
       };
-
-      // Mapear opciones de ordenamiento frontend a backend
-      switch (sortOption) {
-        case 'priceLow':
-        case 'priceHigh':
-          filters.ordenar = 'precio';
-          break;
-        case 'nameAZ':
-        case 'nameZA':
-          filters.ordenar = 'nombre';
-          break;
-        case 'newest':
-          filters.ordenar = 'fecha_creacion';
-          break;
-        case 'rating':
-          filters.ordenar = 'rating';
-          break;
-        case 'popularidad':
-          filters.ordenar = 'popularidad';
-          break;
-        default:
-          filters.ordenar = 'relevancia';
-          break;
-      }
       
-      if (selectedCategory) {
-        // Buscar el ID de la categoría si se pasó un slug
-        const category = categories.find(c => 
-          c.id.toString() === selectedCategory || c.slug === selectedCategory
-        );
-        if (category) {
-          filters.categoria = category.id;
-        }
-      }
-      
-      if (searchQuery) {
-        filters.busqueda = searchQuery;
-      }
-      
-      if (priceRange[0] > 0) {
-        filters.precio_min = priceRange[0];
-      }
-      
-      if (priceRange[1] < 1000) { // Usar un valor alto por defecto
-        filters.precio_max = priceRange[1];
-      }
-      
-      if (minRating > 0) {
-        filters.rating_min = minRating;
-      }
-      
-      // Fetch products and categories/stats from backend
+      // Fetch products, categories and stats
       const promises = [
-        productsService.getProducts(filters)
+        productsService.getProducts(filters),
+        productsService.getCategories(),
+        productsService.getProductStats()
       ];
       
-      // Solo fetch categories y stats si no los tenemos
-      if (categories.length === 0) {
-        promises.push(productsService.getCategories());
-      }
+      const [productsResponse, categoriesResponse, statsResponse] = await Promise.all(promises);
       
-      if (!stats) {
-        promises.push(productsService.getProductStats());
-      }
-      
-      const results = await Promise.all(promises);
-      const productsResponse = results[0];
-      
-      // Transform backend data to frontend format
+      // Transform backend products data to frontend format
       const transformedProducts = productsResponse.data.data.map(product => {
-        // Usar la URL completa que viene del backend
         let imageUrl = '';
         if (product.url_imagen_completa) {
           imageUrl = product.url_imagen_completa;
         } else {
-          // Fallback: construir URL manualmente si no viene la completa
           imageUrl = product.url_imagen ? 
             `http://127.0.0.1:8000/storage/${product.url_imagen}` : 
             '/images/placeholder-strawberry.jpg';
@@ -129,47 +89,34 @@ const ProductsPage = () => {
           name: product.nombre,
           description: product.descripcion,
           price: parseFloat(product.precio),
-          salePrice: null, // Backend doesn't have sale prices yet
+          salePrice: null,
           images: [imageUrl],
           categoryId: product.categorias_id_categoria,
           featured: product.destacado || false,
           inStock: product.estado === 'activo',
           weight: product.peso,
-          stock: 100, // Placeholder since backend doesn't track stock yet
+          stock: 100,
           averageRating: product.comentarios_avg_calificacion ? parseFloat(product.comentarios_avg_calificacion) : 0,
           totalReviews: product.comentarios_count || 0,
-          reviews: [] // Placeholder reviews array
+          reviews: []
         };
       });
       
-      setProducts(transformedProducts);
-      setTotalProducts(productsResponse.data.total || 0);
-      setTotalPages(productsResponse.data.last_page || 1);
+      setAllProducts(transformedProducts);
       
-      // Procesar categorías si se obtuvieron
-      if (results.length > 1 && results[1]) {
-        const categoriesResponse = results[1];
-        const transformedCategories = categoriesResponse.data.map(category => ({
-          id: category.id_categoria,
-          name: category.nombre,
-          slug: category.nombre.toLowerCase().replace(/\s+/g, '-').replace(/[áàäâ]/g, 'a').replace(/[éèëê]/g, 'e').replace(/[íìïî]/g, 'i').replace(/[óòöô]/g, 'o').replace(/[úùüû]/g, 'u')
-        }));
-        setCategories(transformedCategories);
-      }
-      
-      // Procesar estadísticas si se obtuvieron
-      if (results.length > 2 && results[2]) {
-        const statsResponse = results[2];
-        setStats(statsResponse.data);
-        
-        // Inicializar rangos de precio si es la primera vez
-        if (priceRange[0] === 0 && priceRange[1] === 100) {
-          setPriceRange([
-            Math.floor(statsResponse.data.precio.min),
-            Math.ceil(statsResponse.data.precio.max)
-          ]);
-        }
-      }
+      // Transform categories
+      const transformedCategories = categoriesResponse.data.map(category => ({
+        id: category.id_categoria,
+        name: category.nombre,
+        slug: category.nombre.toLowerCase().replace(/\s+/g, '-').replace(/[áàäâ]/g, 'a').replace(/[éèëê]/g, 'e').replace(/[íìïî]/g, 'i').replace(/[óòöô]/g, 'o').replace(/[úùüû]/g, 'u')
+      }));
+      setCategories(transformedCategories);
+        // Set stats and initialize price ranges
+      setStats(statsResponse.data);
+      const minPrice = Math.floor(statsResponse.data.precio.min);
+      const maxPrice = Math.ceil(statsResponse.data.precio.max);
+      setPriceRange([minPrice, maxPrice]);
+      setPriceInputRange([minPrice, maxPrice]);
       
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -177,15 +124,117 @@ const ProductsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedCategory, searchQuery, sortOption, priceRange, minRating, showOnlyAvailable, currentPage, categories, stats]);
+  }, []);
 
-  // Fetch data when dependencies change
+  // Fetch data only once on component mount
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);  // Reset filters
+    fetchAllProducts();
+  }, [fetchAllProducts]);  // Filtrar, ordenar y paginar productos en el frontend
+  const filteredAndSortedProducts = useMemo(() => {
+    let filtered = [...allProducts];
+    
+    // Filtro por búsqueda (nombre y descripción)
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(product => 
+        product.name.toLowerCase().includes(query) ||
+        product.description.toLowerCase().includes(query)
+      );
+    }
+    
+    // Filtro por categoría
+    if (selectedCategory) {
+      const category = categories.find(c => 
+        c.id.toString() === selectedCategory || c.slug === selectedCategory
+      );
+      if (category) {
+        filtered = filtered.filter(product => 
+          product.categoryId === category.id
+        );
+      }
+    }
+    
+    // Filtro por rango de precio
+    filtered = filtered.filter(product => 
+      product.price >= priceRange[0] && product.price <= priceRange[1]
+    );
+    
+    // Filtro por calificación mínima
+    if (minRating > 0) {
+      filtered = filtered.filter(product => 
+        product.averageRating >= minRating
+      );
+    }
+    
+    // Filtro por disponibilidad
+    if (showOnlyAvailable) {
+      filtered = filtered.filter(product => product.inStock);
+    }
+    
+    // Ordenamiento
+    filtered.sort((a, b) => {
+      switch (sortOption) {
+        case 'priceLow':
+          return a.price - b.price;
+        case 'priceHigh':
+          return b.price - a.price;
+        case 'nameAZ':
+          return a.name.localeCompare(b.name);
+        case 'nameZA':
+          return b.name.localeCompare(a.name);
+        case 'rating':
+          return b.averageRating - a.averageRating;
+        case 'newest':
+          // Si no tenemos fecha de creación, usamos el ID como proxy
+          return parseInt(b.id) - parseInt(a.id);
+        case 'popularidad':
+          return b.totalReviews - a.totalReviews;
+        default: // relevancia
+          return 0;
+      }
+    });
+    
+    return filtered;
+  }, [allProducts, searchQuery, selectedCategory, priceRange, minRating, showOnlyAvailable, sortOption, categories]);
+  
+  // Paginación en el frontend
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredAndSortedProducts.slice(startIndex, endIndex);
+  }, [filteredAndSortedProducts, currentPage, itemsPerPage]);
+    // Calcular información de paginación
+  const totalProducts = filteredAndSortedProducts.length;
+  const totalPages = Math.ceil(totalProducts / itemsPerPage);
+    // Verificar si hay filtros activos
+  const hasActiveFilters = useMemo(() => {
+    if (!stats) return false;
+    
+    return (
+      searchQuery.trim() !== '' ||
+      selectedCategory !== '' ||
+      priceRange[0] !== Math.floor(stats.precio.min) ||
+      priceRange[1] !== Math.ceil(stats.precio.max) ||
+      minRating > 0 ||
+      !showOnlyAvailable
+    );
+  }, [searchQuery, selectedCategory, priceRange, minRating, showOnlyAvailable, stats]);
+  
+  // Verificar si estamos procesando filtros
+  const isProcessingFilters = useMemo(() => {
+    return (
+      searchInput !== searchQuery ||
+      (priceInputRange[0] !== priceRange[0] || priceInputRange[1] !== priceRange[1])
+    );
+  }, [searchInput, searchQuery, priceInputRange, priceRange]);
+    // Reset página cuando cambian los filtros (pero no cuando cambia solo el ordenamiento)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory, priceRange, minRating, showOnlyAvailable]);// Reset filters
   const handleResetFilters = () => {
     setSelectedCategory('');
     setSearchQuery('');
+    setSearchInput(''); // También resetear el input
     setMinRating(0);
     setShowOnlyAvailable(true);
     setSortOption('relevancia');
@@ -193,10 +242,10 @@ const ProductsPage = () => {
     
     // Restablecer al rango de precios inicial de las estadísticas
     if (stats) {
-      setPriceRange([
-        Math.floor(stats.precio.min),
-        Math.ceil(stats.precio.max)
-      ]);
+      const minPrice = Math.floor(stats.precio.min);
+      const maxPrice = Math.ceil(stats.precio.max);
+      setPriceRange([minPrice, maxPrice]);
+      setPriceInputRange([minPrice, maxPrice]);
     }
   };
 
@@ -275,23 +324,30 @@ const ProductsPage = () => {
           >
             <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
               <div className="mb-6">
-                <h3 className="font-medium text-lg mb-3">Buscar</h3>
-                <div className="relative">
+                <h3 className="font-medium text-lg mb-3">Buscar</h3>                <div className="relative">
                   <input
                     type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
                     placeholder="Buscar productos..."
                     className="w-full border border-gray-300 rounded-md pl-10 pr-4 py-2 focus:outline-none focus:ring-1 focus:ring-red-500"
                   />
                   <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  {searchQuery && (
+                  {searchInput && (
                     <button
-                      onClick={() => setSearchQuery('')}
+                      onClick={() => {
+                        setSearchInput('');
+                        setSearchQuery('');
+                      }}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
                       <X size={18} />
                     </button>
+                  )}
+                  {searchInput !== searchQuery && searchInput && (
+                    <div className="absolute right-10 top-1/2 transform -translate-y-1/2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -328,11 +384,10 @@ const ProductsPage = () => {
                   ))}
                 </div>
               </div>              <div className="mb-6">
-                <h3 className="font-medium text-lg mb-3">Rango de precio</h3>
-                <div className="px-2 space-y-6">
+                <h3 className="font-medium text-lg mb-3">Rango de precio</h3>                <div className="px-2 space-y-6">
                   <div>
                     <label htmlFor="min-price-range" className="block text-sm text-gray-600 mb-1">
-                      Precio mínimo: S/ {priceRange[0].toFixed(2)}
+                      Precio mínimo: S/ {priceInputRange[0].toFixed(2)}
                     </label>
                     <input
                       id="min-price-range"
@@ -340,11 +395,11 @@ const ProductsPage = () => {
                       min={stats ? Math.floor(stats.precio.min) : 0}
                       max={stats ? Math.ceil(stats.precio.max) : 100}
                       step="1"
-                      value={priceRange[0]}
+                      value={priceInputRange[0]}
                       onChange={(e) => {
                         const value = parseInt(e.target.value);
-                        if (value <= priceRange[1]) {
-                          setPriceRange([value, priceRange[1]]);
+                        if (value <= priceInputRange[1]) {
+                          setPriceInputRange([value, priceInputRange[1]]);
                         }
                       }}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-red-600"
@@ -352,7 +407,7 @@ const ProductsPage = () => {
                   </div>
                   <div>
                     <label htmlFor="max-price-range" className="block text-sm text-gray-600 mb-1">
-                      Precio máximo: S/ {priceRange[1].toFixed(2)}
+                      Precio máximo: S/ {priceInputRange[1].toFixed(2)}
                     </label>
                     <input
                       id="max-price-range"
@@ -360,11 +415,11 @@ const ProductsPage = () => {
                       min={stats ? Math.floor(stats.precio.min) : 0}
                       max={stats ? Math.ceil(stats.precio.max) : 100}
                       step="1"
-                      value={priceRange[1]}
+                      value={priceInputRange[1]}
                       onChange={(e) => {
                         const value = parseInt(e.target.value);
-                        if (value >= priceRange[0]) {
-                          setPriceRange([priceRange[0], value]);
+                        if (value >= priceInputRange[0]) {
+                          setPriceInputRange([priceInputRange[0], value]);
                         }
                       }}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-red-600"
@@ -372,6 +427,9 @@ const ProductsPage = () => {
                   </div>
                   <div className="flex justify-between text-sm text-gray-600 font-medium">
                     <span>Rango: S/ {priceRange[0].toFixed(2)} - S/ {priceRange[1].toFixed(2)}</span>
+                    {(priceInputRange[0] !== priceRange[0] || priceInputRange[1] !== priceRange[1]) && (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -435,20 +493,33 @@ const ProductsPage = () => {
           {/* Product Grid */}
           <div className="md:w-3/4">            {/* Sort Options */}
             <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
-              <p className="text-gray-600 mb-2 sm:mb-0">
-                Mostrando {products.length} de {totalProducts} productos
-                {currentPage > 1 && ` (Página ${currentPage} de ${totalPages})`}
-              </p>
+              <div className="mb-2 sm:mb-0">
+                <p className="text-gray-600">
+                  Mostrando {paginatedProducts.length} de {totalProducts} productos
+                  {currentPage > 1 && ` (Página ${currentPage} de ${totalPages})`}
+                </p>                {hasActiveFilters && (
+                  <div className="mt-2">
+                    {isProcessingFilters && (
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-2 inline-block"></div>
+                    )}
+                    <button 
+                      onClick={handleResetFilters}
+                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    >
+                      Borrar filtros
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="flex items-center">
                 <label htmlFor="sort" className="mr-2 text-gray-600">
                   Ordenar por:
                 </label>
                 <select
                   id="sort"
-                  value={sortOption}
-                  onChange={(e) => {
+                  value={sortOption}                  onChange={(e) => {
                     setSortOption(e.target.value);
-                    setCurrentPage(1); // Reset to first page when sorting changes
+                    // No resetear la página al cambiar ordenamiento
                   }}
                   className="border border-gray-300 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-red-500"
                 >
@@ -462,13 +533,11 @@ const ProductsPage = () => {
                   <option value="popularidad">Más populares</option>
                 </select>
               </div>
-            </div>
-
-            {/* Products */}
-            {products.length > 0 ? (
+            </div>            {/* Products */}
+            {paginatedProducts.length > 0 ? (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {products.map((product) => (
+                  {paginatedProducts.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}
                 </div>
