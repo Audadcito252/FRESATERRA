@@ -7,6 +7,7 @@ const AdminNotificationPage = () => {  const navigate = useNavigate();
   // Initial form data with field names matching api requirements
   const initialFormData = {
     usuario_id: '', // Will be converted to user_id in payload
+    todos_los_usuarios: false, // New field for sending to all users
     tipo: '', // Message type
     asunto: '', // Subject
     contenido: '', // Content
@@ -14,7 +15,10 @@ const AdminNotificationPage = () => {  const navigate = useNavigate();
     tipoEnvio: 'completa', // Siempre usar notificación completa (In-App + Email)
   };
   const [formData, setFormData] = useState(initialFormData);
-  const [isLoading, setIsLoading] = useState(false);  const [users, setUsers] = useState([]); // To populate user selection
+  const [isLoading, setIsLoading] = useState(false);  
+  const [users, setUsers] = useState([]); // To populate user selection
+  const [usersCount, setUsersCount] = useState(0); // Count of active users
+  const [showConfirmModal, setShowConfirmModal] = useState(false); // Confirmation modal
 
   useEffect(() => {
     const isAdmin = localStorage.getItem('isAdminAuthenticated');
@@ -27,7 +31,7 @@ const AdminNotificationPage = () => {  const navigate = useNavigate();
 
     const fetchUsers = async () => {
       try {
-        // Intentar primero con la ruta de admin protegida
+        // Obtener lista de usuarios
         let response;
         try {
           response = await api.get('/admin/users/registered');
@@ -48,10 +52,29 @@ const AdminNotificationPage = () => {  const navigate = useNavigate();
           setUsers([]);
           toast.error('No se pudieron cargar los usuarios.');
         }
+
+        // Obtener conteo de usuarios activos
+        try {
+          const countResponse = await api.get('/admin/users/count');
+          if (countResponse.data && countResponse.data.total_usuarios_activos) {
+            setUsersCount(countResponse.data.total_usuarios_activos);
+          } else {
+            // Si no hay respuesta del endpoint, usar el conteo de usuarios cargados
+            const loadedUsers = response.usuarios || response.users || response.data || response;
+            setUsersCount(Array.isArray(loadedUsers) ? loadedUsers.length : 0);
+          }
+        } catch (countError) {
+          console.warn('Error getting users count:', countError.message);
+          // Usar el conteo de usuarios cargados como fallback
+          const loadedUsers = response.usuarios || response.users || response.data || response;
+          setUsersCount(Array.isArray(loadedUsers) ? loadedUsers.length : 0);
+        }
+
       } catch (error) {
         console.error('Error fetching users:', error);
         toast.error('Error al cargar la lista de usuarios: ' + (error.message || 'Error desconocido'));
         setUsers([]);
+        setUsersCount(0);
       }
     };
 
@@ -59,49 +82,93 @@ const AdminNotificationPage = () => {  const navigate = useNavigate();
   }, [navigate]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    if (name === 'usuario_id') {
+      // Si seleccionamos "todos", marcamos todos_los_usuarios como true
+      if (value === 'todos') {
+        setFormData(prev => ({ 
+          ...prev, 
+          usuario_id: '',
+          todos_los_usuarios: true 
+        }));
+      } else {
+        setFormData(prev => ({ 
+          ...prev, 
+          usuario_id: value,
+          todos_los_usuarios: false 
+        }));
+      }
+    } else {
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: type === 'checkbox' ? checked : value 
+      }));
+    }
   };    const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    if (!formData.usuario_id || !formData.contenido) {
-      toast.error('Por favor selecciona un usuario y escribe un mensaje.');
-      setIsLoading(false);
+    
+    if ((!formData.usuario_id && !formData.todos_los_usuarios) || !formData.contenido) {
+      toast.error('Por favor selecciona un destinatario y escribe un mensaje.');
       return;
     }
 
-    try {
-      // Siempre usar el método completo (In-App + Email)
+    // Si es para todos los usuarios, mostrar confirmación
+    if (formData.todos_los_usuarios && !showConfirmModal) {
+      setShowConfirmModal(true);
+      return;
+    }
+
+    await sendNotification();
+  };
+
+  const sendNotification = async () => {
+    setIsLoading(true);
+    setShowConfirmModal(false);
+
+    try {  
+      // Preparar el payload según si es para todos los usuarios o uno específico
       const payload = {
-        user_id: parseInt(formData.usuario_id),
-        data: {
-          mensaje: formData.contenido,
-          tipo: formData.tipo,
-          asunto: formData.asunto,
-          prioridad: formData.prioridad,
-          enviar_a_todos: false
-        },
-        tipo: formData.tipo,
+        tipo_mensaje: formData.tipo || 'general',
         asunto: formData.asunto,
-        send_email: true
+        contenido_mensaje: formData.contenido,
+        prioridad: formData.prioridad
       };
+
+      // Si es para todos los usuarios
+      if (formData.todos_los_usuarios) {
+        payload.todos_los_usuarios = true;
+      } else {
+        payload.id_usuario = parseInt(formData.usuario_id);
+      }
       
-      console.log('Enviando notificación completa (In-App + Email):', payload);
-      const response = await api.post('/admin/notificaciones/send-complete', payload);
+      console.log('Enviando notificación:', payload);
+      const response = await api.post('/admin/notificaciones', payload);
       
       console.log('Notification sent response:', response);
-      toast.success(response.message || '¡Notificación enviada con éxito!');
+      
+      // Mostrar mensaje de éxito más detallado
+      const successMessage = response.data?.mensaje || '¡Notificación enviada con éxito!';
+      toast.success(successMessage, { duration: 4000 });
+      
       setFormData(initialFormData); // Reset form
     } catch (error) {
       console.error('Error sending notification:', error);
       let errorMsg = 'Error al enviar la notificación.';
       
       // Handle validation errors (422) or other structured errors
-      if (error.validationErrors) {
-        errorMsg = Object.values(error.validationErrors).flat().join(' ');
+      if (error.response?.data?.errors) {
+        const validationErrors = error.response.data.errors;
+        errorMsg = Object.values(validationErrors).flat().join(' ');
+      } else if (error.response?.data?.message) {
+        errorMsg = error.response.data.message;
       } else if (error.message) {
         errorMsg = error.message;
+      }
+      
+      // Si hay información de debug, mostrarla en consola
+      if (error.response?.data?.debug) {
+        console.log('Debug info:', error.response.data.debug);
+        errorMsg += ` (Debug: ${JSON.stringify(error.response.data.debug)})`;
       }
       
       toast.error(errorMsg);
@@ -127,47 +194,72 @@ const AdminNotificationPage = () => {  const navigate = useNavigate();
           Cerrar Sesión Admin
         </button>
       </div>
+      
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* User Selection */}
-          <div className="mb-4">            <label htmlFor="usuario_id" className="block text-sm font-medium text-gray-700 mb-1">
+          <div className="mb-4">
+            <label htmlFor="usuario_id" className="block text-sm font-medium text-gray-700 mb-1">
               Usuario Destinatario
             </label>
             <select
               id="usuario_id"
               name="usuario_id"
-              value={formData.usuario_id}
+              value={formData.todos_los_usuarios ? 'todos' : formData.usuario_id}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
               required
             >
               <option value="">Seleccione un usuario</option>
+              <option value="todos" className="font-bold bg-blue-50">
+                📢 Todos los usuarios registrados
+              </option>
               {users.map(user => (
                 <option key={user.id_usuario} value={user.id_usuario}>
                   {user.nombre} ({user.email})
                 </option>
               ))}
             </select>
+            {formData.todos_los_usuarios && (
+              <div className="text-sm text-blue-600 mt-1 p-2 bg-blue-50 rounded border border-blue-200">
+                <div className="flex items-center gap-2">
+                  <span>⚠️</span>
+                  <div>
+                    <p className="font-semibold">Esta notificación se enviará a todos los usuarios registrados</p>
+                    <p className="text-xs text-blue-500">
+                      Total de usuarios activos: <strong>{usersCount > 0 ? usersCount : users.length}</strong>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Tipo (Mensaje) */}
-          <div className="mb-4">            <label htmlFor="tipo" className="block text-sm font-medium text-gray-700 mb-1">
+          <div className="mb-4">
+            <label htmlFor="tipo" className="block text-sm font-medium text-gray-700 mb-1">
               Tipo de Mensaje
             </label>
-            <input
-              type="text"
+            <select
               id="tipo"
               name="tipo"
               value={formData.tipo}
               onChange={handleChange}
-              placeholder="Ej: Promoción, Aviso, Recordatorio"
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
               required
-            />
+            >
+              <option value="">Seleccione el tipo</option>
+              <option value="general">General</option>
+              <option value="promocion">Promoción</option>
+              <option value="sistema">Sistema</option>
+              <option value="urgente">Urgente</option>
+              <option value="novedad">Novedad</option>
+            </select>
           </div>
 
           {/* Asunto (Mensaje) */}
-          <div className="mb-4 md:col-span-2">            <label htmlFor="asunto" className="block text-sm font-medium text-gray-700 mb-1">
+          <div className="mb-4 md:col-span-2">
+            <label htmlFor="asunto" className="block text-sm font-medium text-gray-700 mb-1">
               Asunto del Mensaje
             </label>
             <input
@@ -181,7 +273,8 @@ const AdminNotificationPage = () => {  const navigate = useNavigate();
           </div>
 
           {/* Contenido (Mensaje) */}
-          <div className="mb-4 md:col-span-2">            <label htmlFor="contenido" className="block text-sm font-medium text-gray-700 mb-1">
+          <div className="mb-4 md:col-span-2">
+            <label htmlFor="contenido" className="block text-sm font-medium text-gray-700 mb-1">
               Contenido del Mensaje
             </label>
             <textarea
@@ -196,7 +289,8 @@ const AdminNotificationPage = () => {  const navigate = useNavigate();
           </div>
           
           {/* Prioridad (Mensaje) */}
-          <div className="mb-4">            <label htmlFor="prioridad" className="block text-sm font-medium text-gray-700 mb-1">
+          <div className="mb-4">
+            <label htmlFor="prioridad" className="block text-sm font-medium text-gray-700 mb-1">
               Prioridad del Mensaje
             </label>
             <select
@@ -219,12 +313,72 @@ const AdminNotificationPage = () => {  const navigate = useNavigate();
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-red-600 text-white py-2.5 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 disabled:bg-gray-400"
+            className={`w-full py-2.5 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-opacity-50 font-semibold ${
+              formData.todos_los_usuarios 
+                ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 text-white' 
+                : 'bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white'
+            } disabled:bg-gray-400`}
           >
-            {isLoading ? 'Enviando...' : 'Enviar Notificación'}
+            {isLoading 
+              ? 'Enviando...' 
+              : formData.todos_los_usuarios 
+                ? `📢 Enviar a Todos los Usuarios (${usersCount > 0 ? usersCount : users.length})` 
+                : 'Enviar Notificación'
+            }
           </button>
         </div>
       </form>
+
+      {/* Modal de Confirmación */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <span className="text-yellow-600 text-xl">⚠️</span>
+                </div>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Confirmar Envío Masivo
+                </h3>
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                Estás a punto de enviar esta notificación a <strong>todos los usuarios registrados</strong> en el sistema.
+              </p>
+              <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                <p className="text-sm"><strong>Tipo:</strong> {formData.tipo}</p>
+                <p className="text-sm"><strong>Asunto:</strong> {formData.asunto}</p>
+                <p className="text-sm"><strong>Destinatarios:</strong> {usersCount > 0 ? usersCount : users.length} usuarios</p>
+                <p className="text-sm"><strong>Prioridad:</strong> {formData.prioridad}</p>
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                ¿Estás seguro de que quieres continuar?
+              </p>
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={sendNotification}
+                disabled={isLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400"
+              >
+                {isLoading ? 'Enviando...' : 'Sí, Enviar a Todos'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
