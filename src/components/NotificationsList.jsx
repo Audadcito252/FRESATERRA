@@ -49,160 +49,127 @@ const NotificationsList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all', 'unread', 'read'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
-  // Cargar notificaciones al inicializar
   useEffect(() => {
     if (isAuthenticated) {
-      loadNotificaciones();
+      loadNotifications();
     }
   }, [isAuthenticated, filter]);
 
-  // Cargar notificaciones desde la API
-  const loadNotificaciones = async () => {
+  const loadNotifications = async (page = 1) => {
     try {
       setLoading(true);
-      let data;
+      setError(null);
       
-      switch (filter) {
-        case 'unread':
-          data = await notificacionesService.getUnreadNotifications();
-          break;
-        case 'read':
-          const allNotifications = await notificacionesService.getUserNotifications();
-          data = allNotifications.filter(n => n.read_at !== null);
-          break;
-        default:
-          data = await notificacionesService.getUserNotifications();
+      let data;
+      if (filter === 'unread') {
+        data = await notificacionesService.getUnreadNotifications();
+      } else {
+        data = await notificacionesService.getAllNotifications(page);
       }
       
-      console.log("Notificaciones recibidas:", data);
-      setNotificaciones(data);
-      setLoading(false);
+      if (page === 1) {
+        setNotificaciones(data);
+      } else {
+        setNotificaciones(prev => [...prev, ...data]);
+      }
+      
+      setHasMore(data.length === 20); // Asumiendo 20 items por página
+      setCurrentPage(page);
     } catch (err) {
       console.error("Error al cargar notificaciones:", err);
-      setError("No se pudieron cargar las notificaciones");
+      setError("Error al cargar las notificaciones");
+    } finally {
       setLoading(false);
     }
   };
 
-  // Marcar notificación como leída
   const handleMarkAsRead = async (id) => {
     try {
       await notificacionesService.marcarComoLeida(id);
-      // Recargar notificaciones para reflejar el cambio
-      loadNotificaciones();
+      // Actualizar la notificación en el estado local
+      setNotificaciones(prev => 
+        prev.map(notif => 
+          notif.id_notificacion === id 
+            ? { ...notif, leida: true, read_at: new Date().toISOString() }
+            : notif
+        )
+      );
     } catch (err) {
       console.error("Error al marcar notificación como leída:", err);
-      alert("No se pudo marcar la notificación como leída");
     }
-  };
-
-  // Marcar todas como leídas
-  const handleMarkAllAsRead = async () => {
+  };  const handleMarkAllAsRead = async () => {
     try {
-      await notificacionesService.marcarTodasComoLeidas();
-      loadNotificaciones();
+      console.log("Marcando todas las notificaciones como leídas...");
+      
+      // Usar directamente el método alternativo que sabemos que funciona
+      await notificacionesService.marcarTodasComoLeidasAlternativo();
+      console.log("✅ Todas las notificaciones marcadas como leídas exitosamente");
+      
+      // Recargar las notificaciones desde el servidor para obtener el estado actualizado
+      await loadNotifications(1);
+      
+      console.log("🔄 Notificaciones recargadas desde el servidor");
+      
     } catch (err) {
-      console.error("Error al marcar todas como leídas:", err);
-      alert("No se pudieron marcar todas las notificaciones como leídas");
+      console.error("Error al marcar todas las notificaciones como leídas:", err);
+      // Mostrar error al usuario
+      alert("Error al marcar las notificaciones como leídas. Por favor, inténtalo de nuevo.");
     }
   };
 
-  // Eliminar notificación
   const handleDeleteNotification = async (id) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar esta notificación?')) {
-      try {
-        await notificacionesService.eliminarNotificacion(id);
-        loadNotificaciones();
-      } catch (err) {
-        console.error("Error al eliminar notificación:", err);
-        alert("No se pudo eliminar la notificación");
-      }
+    try {
+      await notificacionesService.eliminarNotificacion(id);
+      setNotificaciones(prev => prev.filter(notif => notif.id_notificacion !== id));
+    } catch (err) {
+      console.error("Error al eliminar notificación:", err);
     }
   };
 
-  // Formatear fecha
   const formatDate = (dateString) => {
     if (!dateString) return '';
     
     try {
-      const date = new Date(dateString);
-      const now = new Date();
-      const diffInMinutes = Math.floor((now - date) / (1000 * 60));
-      
-      if (diffInMinutes < 1) return 'Hace un momento';
-      if (diffInMinutes < 60) return `Hace ${diffInMinutes} minuto${diffInMinutes > 1 ? 's' : ''}`;
-      
-      const diffInHours = Math.floor(diffInMinutes / 60);
-      if (diffInHours < 24) return `Hace ${diffInHours} hora${diffInHours > 1 ? 's' : ''}`;
-      
-      return date.toLocaleDateString('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      return formatearFechaCompleta(dateString);
     } catch (error) {
-      console.error("Error formateando fecha:", error);
-      return dateString;
+      return formatearFechaRelativa(dateString);
     }
   };
+  const filteredNotifications = notificaciones.filter(notif => {
+    const isUnread = !notif.leida && !notif.read_at && !notif.fecha_lectura;
+    const isRead = notif.leida || notif.read_at || notif.fecha_lectura;
+    
+    if (filter === 'unread') return isUnread;
+    if (filter === 'read') return isRead;
+    return true; // 'all'
+  });
+
+  const unreadCount = notificaciones.filter(notif => 
+    !notif.leida && !notif.read_at && !notif.fecha_lectura
+  ).length;
 
   if (!isAuthenticated) {
     return (
-      <div className="bg-gray-50 rounded-lg p-6 text-center">
-        <p className="text-gray-700">Inicia sesión para ver tus notificaciones</p>
+      <div className="text-center py-8">
+        <p className="text-gray-500">Debes iniciar sesión para ver tus notificaciones.</p>
       </div>
     );
   }
 
-  if (loading) {
-    return <div className="text-center py-8">Cargando notificaciones...</div>;
-  }
-
-  if (error) {
-    return <div className="text-center py-8 text-red-500">{error}</div>;
-  }
-
-  const unreadCount = notificaciones.filter(n => !n.read_at).length;
-
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Notificaciones</h1>
-              <p className="text-gray-600 mt-1">
-                {unreadCount > 0 && (
-                  <span className="text-red-600 font-medium">
-                    {unreadCount} sin leer
-                  </span>
-                )}
-                {unreadCount === 0 && "Todas las notificaciones están al día"}
-              </p>
-            </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={handleMarkAllAsRead}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
-              >
-                Marcar todas como leídas
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Filtros */}
-        <div className="px-6 py-3 bg-gray-50">
-          <div className="flex space-x-4">
+    <div className="bg-white rounded-lg shadow-sm">
+      {/* Header con filtros y acciones */}
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center space-x-4">
             <button
               onClick={() => setFilter('all')}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                 filter === 'all' 
-                  ? 'bg-blue-100 text-blue-700' 
+                  ? 'bg-red-100 text-red-700' 
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
@@ -210,114 +177,127 @@ const NotificationsList = () => {
             </button>
             <button
               onClick={() => setFilter('unread')}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                 filter === 'unread' 
-                  ? 'bg-blue-100 text-blue-700' 
+                  ? 'bg-red-100 text-red-700' 
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              Sin leer ({unreadCount})
+              No leídas ({unreadCount})
             </button>
             <button
               onClick={() => setFilter('read')}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                 filter === 'read' 
-                  ? 'bg-blue-100 text-blue-700' 
+                  ? 'bg-red-100 text-red-700' 
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              Leídas
+              Leídas ({notificaciones.length - unreadCount})
             </button>
           </div>
+          
+          {unreadCount > 0 && (
+            <button
+              onClick={handleMarkAllAsRead}
+              className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Marcar todas como leídas
+            </button>
+          )}
         </div>
       </div>
 
       {/* Lista de notificaciones */}
-      <div className="space-y-4">
-        {notificaciones.length === 0 ? (
-          <div className="bg-white rounded-lg p-8 text-center border border-gray-200">
-            <div className="text-gray-400 mb-4">
-              <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 17h5l-5 5-5-5h5v-5a7.5 7.5 0 0 0-15 0v5h5l-5 5-5-5h5V9a9.5 9.5 0 0 1 19 0v8z" />
-              </svg>
-            </div>
-            <p className="text-gray-500 text-lg">No hay notificaciones</p>
-            <p className="text-gray-400 text-sm mt-1">
-              {filter === 'unread' && "No tienes notificaciones sin leer"}
-              {filter === 'read' && "No tienes notificaciones leídas"}
-              {filter === 'all' && "No tienes notificaciones"}
-            </p>
+      <div className="divide-y divide-gray-100">
+        {loading && notificaciones.length === 0 ? (
+          <div className="p-8 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
+            <p className="mt-2 text-gray-500">Cargando notificaciones...</p>
           </div>
-        ) : (
-          notificaciones.map((notificacion) => (
-            <div 
-              key={notificacion.id_notificacion}
-              className={`bg-white rounded-lg border transition-all duration-200 hover:shadow-md ${
-                !notificacion.read_at 
-                  ? 'border-blue-200 bg-blue-50' 
-                  : 'border-gray-200'
-              }`}
+        ) : error ? (
+          <div className="p-8 text-center">
+            <p className="text-red-600">{error}</p>
+            <button
+              onClick={() => loadNotifications()}
+              className="mt-2 text-red-600 hover:text-red-800 font-medium"
             >
-              <div className="p-6">
+              Reintentar
+            </button>
+          </div>        ) : filteredNotifications.length === 0 ? (
+          <div className="p-8 text-center">
+            <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            <p className="text-gray-500 text-lg">
+              {filter === 'unread' ? 'No tienes notificaciones sin leer' :
+               filter === 'read' ? 'No tienes notificaciones leídas' :
+               'No tienes notificaciones'}
+            </p>
+          </div>) : (
+          filteredNotifications.map((notificacion) => {
+            const isUnread = !notificacion.leida && !notificacion.read_at && !notificacion.fecha_lectura;
+            return (
+              <div 
+                key={notificacion.id_notificacion}
+                className={`p-6 hover:bg-gray-50 transition-colors ${
+                  isUnread ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                }`}
+              >
                 <div className="flex items-start space-x-4">
-                  {/* Icono de tipo */}
                   <NotificationIcon tipo={notificacion.data?.tipo || 'sistema'} />
                   
-                  {/* Contenido */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
+                    <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <h3 className={`text-lg font-medium ${
-                          !notificacion.read_at ? 'text-gray-900' : 'text-gray-700'
-                        }`}>
+                        <h3 className={`text-sm font-medium ${isUnread ? 'text-gray-900' : 'text-gray-700'}`}>
                           {notificacion.mensaje?.tipo || 'Notificación'}
                         </h3>
-                        <p className={`mt-1 ${
-                          !notificacion.read_at ? 'text-gray-800' : 'text-gray-600'
-                        }`}>
+                        <p className="mt-1 text-sm text-gray-600">
                           {notificacion.mensaje?.contenido || notificacion.data?.mensaje || 'Sin contenido'}
                         </p>
-                        <div className="flex items-center mt-3 text-sm text-gray-500">
-                          <span>{formatDate(notificacion.fecha_creacion || notificacion.created_at)}</span>
-                          {!notificacion.read_at && (
-                            <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              Nuevo
-                            </span>
-                          )}
-                        </div>
+                        <p className="mt-2 text-xs text-gray-500">
+                          {formatDate(notificacion.fecha_creacion || notificacion.created_at)}
+                        </p>
                       </div>
                       
-                      {/* Acciones */}
                       <div className="flex items-center space-x-2 ml-4">
-                        {!notificacion.read_at && (
+                        {isUnread && (
                           <button
                             onClick={() => handleMarkAsRead(notificacion.id_notificacion)}
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                            title="Marcar como leída"
+                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
+                            Marcar como leída
                           </button>
                         )}
                         <button
                           onClick={() => handleDeleteNotification(notificacion.id_notificacion)}
-                          className="text-red-600 hover:text-red-800 text-sm font-medium"
-                          title="Eliminar notificación"
+                          className="text-xs text-red-600 hover:text-red-800 font-medium"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
+                          Eliminar
                         </button>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
+
+      {/* Cargar más */}
+      {hasMore && filteredNotifications.length > 0 && (
+        <div className="p-6 text-center border-t border-gray-200">
+          <button
+            onClick={() => loadNotifications(currentPage + 1)}
+            disabled={loading}
+            className="px-6 py-2 text-red-600 border border-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {loading ? 'Cargando...' : 'Cargar más notificaciones'}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

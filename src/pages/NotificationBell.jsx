@@ -48,13 +48,30 @@ const NotificationBell = () => {
       setLoading(false);
     }
   };
-
   const handleMarkAsRead = async (id) => {
     try {
       await notificacionesService.marcarComoLeida(id);
       loadUnreadNotifications();
     } catch (err) {
       console.error("Error al marcar notificación como leída:", err);
+    }
+  };  const handleMarkAllAsRead = async () => {
+    try {
+      console.log("Marcando todas las notificaciones como leídas...");
+      
+      // Usar directamente el método alternativo que sabemos que funciona
+      await notificacionesService.marcarTodasComoLeidasAlternativo();
+      console.log("✅ Todas las notificaciones marcadas como leídas exitosamente");
+      
+      // Recargar las notificaciones para obtener el estado actualizado
+      await loadUnreadNotifications();
+      
+      // Cerrar el dropdown después de marcar todas
+      setIsOpen(false);
+      
+    } catch (err) {
+      console.error("Error al marcar todas las notificaciones como leídas:", err);
+      alert("Error al marcar las notificaciones como leídas. Por favor, inténtalo de nuevo.");
     }
   };
   // Usamos la función importada de utilidades para mantener consistencia
@@ -102,14 +119,17 @@ const NotificationBell = () => {
         )}
       </button>      {/* Dropdown de notificaciones */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-4 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-[9999] sm:max-w-[320px]">
-          {/* Header */}
+        <div className="absolute right-0 top-full mt-4 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-[9999] sm:max-w-[320px]">          {/* Header */}
           <div className="px-4 py-3 border-b border-gray-200">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold text-gray-900">Notificaciones</h3>
-              {unreadCount > 0 && (
-                <span className="text-sm text-gray-500">{unreadCount} sin leer</span>
-              )}
+              <div className="flex items-center space-x-2">
+                {unreadCount > 0 && (
+                  <>
+                    <span className="text-sm text-gray-500">{unreadCount} sin leer</span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -118,11 +138,10 @@ const NotificationBell = () => {
             {loading ? (
               <div className="p-4 text-center text-gray-500">
                 Cargando...
-              </div>
-            ) : notificaciones.length === 0 ? (
+              </div>            ) : notificaciones.length === 0 ? (
               <div className="p-4 text-center text-gray-500">
                 <svg className="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 17h5l-5 5-5-5h5v-5a7.5 7.5 0 0 0-15 0v5h5l-5 5-5-5h5V9a9.5 9.5 0 0 1 19 0v8z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" />
                 </svg>
                 <p className="text-sm">No hay notificaciones nuevas</p>
               </div>
@@ -176,13 +195,12 @@ const NotificationBell = () => {
           </div>          {/* Footer */}
           {notificaciones.length > 0 && (
             <div className="px-4 py-3 border-t border-gray-200">
-              <Link
-                to="/profile"
-                className="block text-center text-sm text-red-600 hover:text-red-800 font-medium"
-                onClick={() => setIsOpen(false)}
+              <button
+                onClick={handleMarkAllAsRead}
+                className="block w-full text-center text-sm text-red-600 hover:text-red-800 font-medium"
               >
-                Ver todas las notificaciones
-              </Link>
+                Marcar todas como leídas
+              </button>
             </div>
           )}
         </div>

@@ -171,7 +171,9 @@ class NotificacionesService {
    */
   async marcarComoLeida(id) {
     try {
-      const response = await apiClient.patch(`/${id}/mark-read`);
+      const response = await apiClient.patch(`/${id}`, {
+        estado: 'leida'
+      });
       return response.data;
     } catch (error) {
       console.error(`Error al marcar notificación ${id} como leída:`, error);
@@ -188,7 +190,37 @@ class NotificacionesService {
       const response = await apiClient.patch('/mark-all-read');
       return response.data;
     } catch (error) {
-      console.error('Error al marcar todas las notificaciones como leídas:', error);
+      // No hacer console.error aquí para evitar ruido en consola
+      // El error será manejado por el componente que llama
+      throw error;
+    }
+  }
+
+  /**
+   * Marcar todas las notificaciones como leídas (método alternativo)
+   * Obtiene todas las notificaciones no leídas y las marca individualmente
+   * @returns {Promise} Promesa con la respuesta
+   */
+  async marcarTodasComoLeidasAlternativo() {
+    try {
+      // Primero obtenemos todas las notificaciones no leídas
+      const notificaciones = await this.getUnreadNotifications();
+      
+      if (!notificaciones || notificaciones.length === 0) {
+        return { message: 'No hay notificaciones sin leer' };
+      }
+
+      // Marcar cada notificación como leída
+      const promesas = notificaciones.map(notif => 
+        this.marcarComoLeida(notif.id_notificacion || notif.id)
+      );
+
+      // Esperar a que todas se marquen como leídas
+      await Promise.all(promesas);
+      
+      return { message: `${notificaciones.length} notificaciones marcadas como leídas` };
+    } catch (error) {
+      console.error('Error al marcar todas las notificaciones como leídas (método alternativo):', error);
       throw error;
     }
   }
@@ -246,6 +278,32 @@ class NotificacionesService {
       return response.data;
     } catch (error) {
       console.error('Error al limpiar notificaciones de email:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Enviar notificación campanita con email
+   * @param {Object} data - Datos de la notificación
+   * @returns {Promise} Promesa con la respuesta
+   */
+  async enviarCampanitaConEmail(data) {
+    try {
+      // Usar la URL de admin para los servicios de notificación
+      const adminApiClient = axios.create({
+        baseURL: 'http://localhost:8000/api/v1/notificaciones',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        timeout: 30000
+      });
+      
+      const response = await adminApiClient.post('/enviar-campanita-con-email', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error al enviar campanita con email:', error);
       throw error;
     }
   }

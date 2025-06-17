@@ -11,6 +11,7 @@ const AdminNotificationPage = () => {  const navigate = useNavigate();
     asunto: '', // Subject
     contenido: '', // Content
     prioridad: 'normal', // Priority with default value
+    tipoEnvio: 'completa', // Siempre usar notificación completa (In-App + Email)
   };
   const [formData, setFormData] = useState(initialFormData);
   const [isLoading, setIsLoading] = useState(false);  const [users, setUsers] = useState([]); // To populate user selection
@@ -62,32 +63,34 @@ const AdminNotificationPage = () => {  const navigate = useNavigate();
     setFormData(prev => ({ ...prev, [name]: value }));
   };    const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);    if (!formData.usuario_id || !formData.contenido) {
+    setIsLoading(true);
+
+    if (!formData.usuario_id || !formData.contenido) {
       toast.error('Por favor selecciona un usuario y escribe un mensaje.');
       setIsLoading(false);
       return;
-    }    
-      // Create payload for complete notification endpoint
-    const payload = {
-      user_id: parseInt(formData.usuario_id),     // ID del usuario (requerido por el backend)
-      data: {
-        mensaje: formData.contenido,              // Mensaje como string (contenido del mensaje)
-        tipo: formData.tipo,                      // Tipo del mensaje
-        asunto: formData.asunto,                  // Asunto del mensaje  
-        prioridad: formData.prioridad,            // Prioridad del mensaje
-        enviar_a_todos: false                     // No enviar a todos
-      },
-      tipo: formData.tipo,                        // Tipo de notificación
-      asunto: formData.asunto,                    // Asunto de la notificación
-      send_email: true                            // Enviar email
-    };    console.log('Sending notification with payload:', payload);
-    
+    }
+
     try {
-      // Using the complete notification endpoint
+      // Siempre usar el método completo (In-App + Email)
+      const payload = {
+        user_id: parseInt(formData.usuario_id),
+        data: {
+          mensaje: formData.contenido,
+          tipo: formData.tipo,
+          asunto: formData.asunto,
+          prioridad: formData.prioridad,
+          enviar_a_todos: false
+        },
+        tipo: formData.tipo,
+        asunto: formData.asunto,
+        send_email: true
+      };
+      
+      console.log('Enviando notificación completa (In-App + Email):', payload);
       const response = await api.post('/admin/notificaciones/send-complete', payload);
       
       console.log('Notification sent response:', response);
-      // The response structure is: { success, message, results }
       toast.success(response.message || '¡Notificación enviada con éxito!');
       setFormData(initialFormData); // Reset form
     } catch (error) {
@@ -209,6 +212,7 @@ const AdminNotificationPage = () => {  const navigate = useNavigate();
               <option value="urgente">Urgente</option>
             </select>
           </div>
+
         </div>
 
         <div className="mt-6">
