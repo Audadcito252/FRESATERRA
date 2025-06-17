@@ -4,7 +4,7 @@ import { useShoppingCart } from '../contexts/ShoppingCartContext';
 import { X } from 'lucide-react';
 
 const QuickCart = ({ open, onClose }) => {
-  const { cartItems, cartTotal, updateQuantity, removeFromCart } = useShoppingCart();
+  const { cartItems, cartTotal, updateQuantity, removeFromCart, loading } = useShoppingCart();
   
   // Bloquear el scroll del body cuando el carrito está abierto
   useEffect(() => {
@@ -34,9 +34,13 @@ const QuickCart = ({ open, onClose }) => {
           <button onClick={onClose} className="text-gray-500 hover:text-black">
             <X size={24} />
           </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {cartItems.length === 0 ? (
+        </div>        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600"></div>
+              <span className="ml-2 text-gray-600">Cargando...</span>
+            </div>
+          ) : cartItems.length === 0 ? (
             <p className="text-gray-500 text-center mt-8">Tu carrito está vacío</p>
           ) : (
             cartItems.map(({ id, product, quantity }) => (
@@ -44,17 +48,36 @@ const QuickCart = ({ open, onClose }) => {
                 <img src={product.images[0]} alt={product.name} className="w-16 h-16 object-cover rounded-md border" />
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-900 text-sm">{product.name}</h3>
+                  <p className="text-xs text-gray-500">S/ {product.price.toFixed(2)} c/u</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <button onClick={() => updateQuantity(id, quantity - 1)} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300">-</button>
-                    <span className="px-2">{quantity}</span>
-                    <button onClick={() => updateQuantity(id, quantity + 1)} className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300">+</button>
+                    <button 
+                      onClick={() => updateQuantity(id, quantity - 1)} 
+                      className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                      disabled={loading}
+                    >
+                      -
+                    </button>
+                    <span className="px-2 text-sm">{quantity}</span>
+                    <button 
+                      onClick={() => updateQuantity(id, quantity + 1)} 
+                      className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                      disabled={loading}
+                    >
+                      +
+                    </button>
                   </div>
                 </div>
                 <div className="text-right min-w-[60px]">
                   <span className="font-bold text-gray-800 text-sm">
-                    S/ {((product.salePrice || product.price) * quantity).toFixed(2)}
+                    S/ {(product.price * quantity).toFixed(2)}
                   </span>
-                  <button onClick={() => removeFromCart(id)} className="block text-xs text-red-600 hover:underline mt-1">Eliminar</button>
+                  <button 
+                    onClick={() => removeFromCart(id)} 
+                    className="block text-xs text-red-600 hover:underline mt-1"
+                    disabled={loading}
+                  >
+                    Eliminar
+                  </button>
                 </div>
               </div>
             ))

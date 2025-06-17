@@ -15,7 +15,6 @@ const ProductCard = ({ product }) => {
 
   // Verificar si el producto está disponible
   const isProductAllowed = product.inStock;
-
   const handleAddToCart = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -24,9 +23,13 @@ const ProductCard = ({ product }) => {
       toast.error('Este producto no está disponible para compra en este momento');
       return;
     }
-    
+
+    if (!user) {
+      toast.error('Debes iniciar sesión para agregar productos al carrito');
+      return;
+    }
+
     addToCart(product, 1);
-    toast.success(`${product.name} agregado al carrito`);
   };
 
   // Calculate discount percentage if there's a sale price
