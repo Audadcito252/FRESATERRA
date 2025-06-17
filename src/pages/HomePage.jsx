@@ -161,9 +161,8 @@ const HomePage = () => {
               <div className="flex items-center justify-center lg:justify-start mb-4">
                 <Truck size={48} className="text-white mr-4" />
                 <h2 className="text-3xl lg:text-4xl font-bold">¡ENVÍO GRATIS!</h2>
-              </div>
-              <p className="text-xl lg:text-2xl mb-2">
-                En paquetes de fresas con compras desde <span className="font-bold text-yellow-300">S/ 30</span>
+              </div>              <p className="text-xl lg:text-2xl mb-2">
+                En todas tus compras desde <span className="font-bold text-yellow-300">S/ 30</span>
               </p>
               <p className="text-lg opacity-90">
                 Disfruta de nuestras fresas frescas con envío gratuito a domicilio
@@ -176,12 +175,11 @@ const HomePage = () => {
               </div>
             </div>
           </div>
-          <div className="mt-8 text-center">
-            <Link 
-              to="/products?category=fresh-strawberry-packs" 
+          <div className="mt-8 text-center">              <Link 
+              to="/products" 
               className="inline-block bg-white hover:bg-gray-100 text-red-600 font-bold px-8 py-4 rounded-full text-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
             >
-              ¡Comprar paquetes de fresas ahora!
+              ¡Comprar ahora!
             </Link>
           </div>
         </div>

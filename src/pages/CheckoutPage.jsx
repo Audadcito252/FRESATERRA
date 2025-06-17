@@ -302,17 +302,21 @@ const CheckoutPage = () => {
         setCurrentStep(currentStep + 1);
       }, 1500); // Simulación de carga
     }
-  };
-  // OFERTA: Envío gratis para cualquier combinación de paquetes de fresas (categoryId: '1') si el subtotal de esos productos es >= 30
+  };  // OFERTA: Envío gratis para cualquier combinación de productos si el total del carrito es >= S/ 30
+  // Mantener variables antiguas para compatibilidad
   const strawberryPackCategoryId = '1';
   
-  // Calcular el subtotal solo de los paquetes de fresas (categoryId: '1')
+  // Calcular el subtotal solo de los paquetes de fresas (categoryId: '1') para seguir mostrando información
   const strawberryPacksSubtotal = cartItems
     .filter(item => item.product.categoryId === strawberryPackCategoryId)
     .reduce((total, item) => total + (item.product.salePrice || item.product.price) * item.quantity, 0);
   
-  // Verificar si aplica la oferta de envío gratis (subtotal de paquetes >= S/ 30)
-  const hasStrawberryPackOffer = strawberryPacksSubtotal >= 30;
+  // Verificar si aplica la oferta de envío gratis por:
+  // 1. El total del carrito es >= S/ 30 (nueva condición)
+  // 2. O bien, el subtotal de paquetes de fresas es >= S/ 30 (condición anterior)
+  const FREE_SHIPPING_THRESHOLD = 30;
+  const hasCartTotalOffer = cartTotal >= FREE_SHIPPING_THRESHOLD;
+  const hasStrawberryPackOffer = strawberryPacksSubtotal >= 30 || hasCartTotalOffer;
 
   // Costo de envío: gratis si aplica la oferta, sino S/ 5.99
   const shippingCost = hasStrawberryPackOffer ? 0 : 5.99;
@@ -788,9 +792,12 @@ const CheckoutPage = () => {
                     Todos los pedidos están sujetos a disponibilidad y se procesarán en un plazo de 1 hora.
                   </div>
                 </div>
-              )}
-              {hasStrawberryPackOffer && (
-                <div className="text-xs text-green-700 font-semibold mt-1">¡Envío gratis aplicado por tu compra de paquetes de fresas!</div>
+              )}              {hasStrawberryPackOffer && (
+                <div className="text-xs text-green-700 font-semibold mt-1">
+                  {hasCartTotalOffer 
+                    ? "¡Envío gratis aplicado por tu compra mayor a S/ 30!" 
+                    : "¡Envío gratis aplicado por tu compra de paquetes de fresas!"}
+                </div>
               )}
             </div>
           </div>

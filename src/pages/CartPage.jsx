@@ -2,11 +2,19 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useShoppingCart } from '../contexts/ShoppingCartContext';
 import { useAuth } from '../contexts/AuthContext';
+import { Truck } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const CartPage = () => {
   const { cartItems, cartTotal, updateQuantity, removeFromCart, clearCart, loading } = useShoppingCart();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // Verificar si aplica la oferta de envío gratis (total >= S/ 30)
+  const FREE_SHIPPING_THRESHOLD = 30;
+  const hasQualifiedForFreeShipping = cartTotal >= FREE_SHIPPING_THRESHOLD;
+  const amountToFreeShipping = FREE_SHIPPING_THRESHOLD - cartTotal;
+  const freeShippingProgress = Math.min((cartTotal / FREE_SHIPPING_THRESHOLD) * 100, 100);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -88,24 +96,66 @@ const CartPage = () => {
             ))}
             
             <div className="mt-8 bg-white rounded-xl shadow p-6 border border-gray-100">
+              {/* Free shipping progress indicator */}
+              <div className="mb-5 bg-gray-50 p-4 rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <Truck size={20} className={hasQualifiedForFreeShipping ? "text-green-600" : "text-gray-600"} />
+                  <h3 className="font-medium text-lg">
+                    {hasQualifiedForFreeShipping 
+                      ? "¡Genial! Tu pedido califica para envío GRATIS" 
+                      : "¡Añade más productos para obtener envío GRATIS!"}
+                  </h3>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
+                  <div 
+                    className={`h-3 rounded-full transition-all duration-500 ${hasQualifiedForFreeShipping ? 'bg-green-600' : 'bg-red-600'}`}
+                    style={{ width: `${freeShippingProgress}%` }}>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">
+                  {hasQualifiedForFreeShipping
+                    ? "¡Envío GRATIS aplicado a tu pedido!"
+                    : `Añade S/ ${amountToFreeShipping.toFixed(2)} más a tu pedido para obtener envío GRATIS`}
+                </p>
+              </div>
+
               <div className="flex justify-between items-center py-2 border-b mb-4">
                 <span className="text-lg font-semibold text-gray-700">Total</span>
                 <span className="text-2xl font-bold text-gray-900">S/ {cartTotal.toFixed(2)}</span>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3 justify-end mt-4">
+              </div>              <div className="flex flex-col sm:flex-row gap-3 justify-between mt-4">
                 <button 
-                  className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
-                  onClick={() => navigate('/products')}
+                  className="px-6 py-2 border border-gray-300 text-gray-700 bg-white rounded-lg font-medium hover:bg-gray-100 transition-colors"                  onClick={async () => {
+                    if(window.confirm('¿Estás seguro de que deseas vaciar el carrito?')) {
+                      try {
+                        setLoading(true);
+                        await clearCart();
+                        toast.success('Carrito vaciado exitosamente');
+                      } catch (error) {
+                        console.error('Error:', error);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }
+                  }}
+                  disabled={loading || cartItems.length === 0}
                 >
-                  Continuar comprando
+                  Vaciar carrito
                 </button>
-                <button 
-                  className="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
-                  onClick={handleCheckout}
-                  disabled={cartItems.length === 0}
-                >
-                  Proceder al pago
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button 
+                    className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+                    onClick={() => navigate('/products')}
+                  >
+                    Continuar comprando
+                  </button>
+                  <button 
+                    className="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                    onClick={handleCheckout}
+                    disabled={cartItems.length === 0}
+                  >
+                    Proceder al pago
+                  </button>
+                </div>
               </div>
             </div>
           </div>

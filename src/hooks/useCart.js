@@ -163,11 +163,27 @@ const useCart = () => {
       setLoading(false);
     }
   }, [isAuthenticated, cart, fetchCart]);
+  // Limpiar carrito (local y backend)
+  const clearCart = useCallback(async () => {
+    if (!isAuthenticated) {
+      setCart({ items: [], total: 0, count: 0 });
+      return;
+    }
 
-  // Limpiar carrito (local)
-  const clearCart = useCallback(() => {
-    setCart({ items: [], total: 0, count: 0 });
-  }, []);
+    try {
+      setLoading(true);
+      await cartService.clearCart();
+      setCart({ items: [], total: 0, count: 0 });
+      console.log('Carrito vaciado exitosamente en frontend y backend');
+    } catch (err) {
+      console.error('Error vaciando el carrito:', err);
+      toast.error(err.response?.data?.message || 'Error al vaciar el carrito');
+      // Intentamos refrescar el carrito para mantener la consistencia
+      await fetchCart();
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated, fetchCart]);
 
   // Cargar carrito al montar o cuando cambie la autenticación
   useEffect(() => {

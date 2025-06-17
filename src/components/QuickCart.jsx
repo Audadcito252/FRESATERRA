@@ -1,10 +1,18 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useShoppingCart } from '../contexts/ShoppingCartContext';
-import { X } from 'lucide-react';
+import { X, Truck } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const QuickCart = ({ open, onClose }) => {
-  const { cartItems, cartTotal, updateQuantity, removeFromCart, loading } = useShoppingCart();
+  const { cartItems, cartTotal, updateQuantity, removeFromCart, clearCart, loading: cartLoading } = useShoppingCart();
+  const [loading, setLoading] = useState(false);
+  
+  // Verificar si aplica la oferta de envío gratis (total >= S/ 30)
+  const FREE_SHIPPING_THRESHOLD = 30;
+  const hasQualifiedForFreeShipping = cartTotal >= FREE_SHIPPING_THRESHOLD;
+  const amountToFreeShipping = FREE_SHIPPING_THRESHOLD - cartTotal;
+  const freeShippingProgress = Math.min((cartTotal / FREE_SHIPPING_THRESHOLD) * 100, 100);
   
   // Bloquear el scroll del body cuando el carrito está abierto
   useEffect(() => {
@@ -34,8 +42,7 @@ const QuickCart = ({ open, onClose }) => {
           <button onClick={onClose} className="text-gray-500 hover:text-black">
             <X size={24} />
           </button>
-        </div>        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {loading ? (
+        </div>        <div className="flex-1 overflow-y-auto p-4 space-y-4">          {cartLoading || loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600"></div>
               <span className="ml-2 text-gray-600">Cargando...</span>
@@ -84,10 +91,46 @@ const QuickCart = ({ open, onClose }) => {
           )}
         </div>
         <div className="p-4 border-t">
-          <div className="flex justify-between items-center mb-4">
+          {cartItems.length > 0 && (
+            <div className="mb-4 bg-gray-50 p-3 rounded-lg">
+              <div className="flex items-center mb-2">
+                <Truck size={16} className="mr-2 text-green-600" />
+                <span className="text-sm font-medium">
+                  {hasQualifiedForFreeShipping 
+                    ? "¡Envío GRATIS aplicado!" 
+                    : `Añade S/ ${amountToFreeShipping.toFixed(2)} más para envío GRATIS`}
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div 
+                  className={`h-2.5 rounded-full ${hasQualifiedForFreeShipping ? 'bg-green-600' : 'bg-red-600'}`}
+                  style={{ width: `${freeShippingProgress}%` }}></div>
+              </div>
+            </div>
+          )}          <div className="flex justify-between items-center mb-4">
             <span className="font-semibold">Total</span>
             <span className="font-bold text-lg">S/ {cartTotal.toFixed(2)}</span>
           </div>
+          {cartItems.length > 0 && (
+            <button              onClick={async () => {
+                if(window.confirm('¿Estás seguro de que deseas vaciar el carrito?')) {
+                  try {
+                    setLoading(true);
+                    await clearCart();
+                    toast.success('Carrito vaciado exitosamente');
+                  } catch (error) {
+                    console.error('Error:', error);
+                  } finally {
+                    setLoading(false);
+                  }
+                }
+              }}
+              className="block w-full text-center py-2 mb-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition-colors"
+              disabled={loading}
+            >
+              Vaciar carrito
+            </button>
+          )}
           <Link
             to="/cart"
             className="block w-full text-center py-2 rounded-lg bg-gray-900 text-white font-semibold hover:bg-gray-700 transition-colors"

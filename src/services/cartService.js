@@ -54,6 +54,17 @@ const cartService = {  // Obtener carrito del usuario
     }
   },
 
+  // Vaciar el carrito completamente
+  clearCart: async () => {
+    try {
+      const response = await api.delete('/cart');
+      return response.data;
+    } catch (error) {
+      console.error('Error vaciando el carrito:', error);
+      throw error;
+    }
+  },
+
   // Hacer checkout del carrito
   checkout: async (checkoutData) => {
     try {
