@@ -19,28 +19,64 @@ const AdminNotificationPage = () => {  const navigate = useNavigate();
   const [users, setUsers] = useState([]); // To populate user selection
   const [usersCount, setUsersCount] = useState(0); // Count of active users
   const [showConfirmModal, setShowConfirmModal] = useState(false); // Confirmation modal
-
   useEffect(() => {
     const isAdmin = localStorage.getItem('isAdminAuthenticated');
     const adminToken = localStorage.getItem('adminToken');
     
+    console.log('Admin Authentication Check:', {
+      isAdmin,
+      adminToken: adminToken ? 'Token exists' : 'No token',
+      tokenLength: adminToken ? adminToken.length : 0
+    });
+    
     if (isAdmin !== 'true' || !adminToken) {
+      console.log('Not authenticated as admin, redirecting to login');
       navigate('/admin/login');
       return;
-    }
-
-    const fetchUsers = async () => {
+    }    const fetchUsers = async () => {
       try {
+        console.log('Fetching users with admin token');
+          // Primero probar la autenticación
+        try {
+          console.log('Testing admin authentication...');
+          const testResponse = await api.get('/admin/test-auth');
+          console.log('Admin auth test response:', testResponse);
+        } catch (testError) {
+          console.error('Admin auth test failed:', testError);
+        }        // Probar middleware admin completo
+        try {
+          console.log('Testing admin middleware...');
+          const adminMiddlewareTest = await api.get('/admin/test-admin-middleware');
+          console.log('Admin middleware test response:', adminMiddlewareTest);
+        } catch (middlewareError) {
+          console.error('Admin middleware test failed:', middlewareError);
+        }
+
+        // Probar el grupo admin/users
+        try {
+          console.log('Testing admin/users group...');
+          const usersGroupTest = await api.get('/admin/users/test-users-group');
+          console.log('Admin users group test response:', usersGroupTest);
+        } catch (groupError) {
+          console.error('Admin users group test failed:', groupError);
+        }
+        
         // Obtener lista de usuarios
         let response;
         try {
+          console.log('Making request to /admin/users/registered');
           response = await api.get('/admin/users/registered');
           console.log('Admin users response:', response);
         } catch (adminError) {
-          console.warn('Admin route failed, trying public route:', adminError.message);
-          // Si falla la ruta de admin, usar la ruta pública como fallback
-          response = await api.get('/users/registered');
-          console.log('Public users response:', response);
+          console.error('Admin route failed:', adminError);
+          console.error('Error details:', {
+            message: adminError.message,
+            status: adminError.status,
+            response: adminError.response
+          });
+          
+          // Si falla, no hay ruta pública alternativa para esta funcionalidad
+          throw new Error('No se pudo acceder a la lista de usuarios. Error: ' + adminError.message);
         }
         
         // Ajustar según la estructura de respuesta de tu backend

@@ -23,13 +23,16 @@ api.interceptors.request.use(
     // Token de administrador
     const adminToken = localStorage.getItem('adminToken');
     const isAdminRoute = config.url && (config.url.includes('/admin/') || config.url.startsWith('admin/'));
-    
-    // Usar token de admin para rutas administrativas, token regular para otras rutas
+      // Usar token de admin para rutas administrativas, token regular para otras rutas
     if (isAdminRoute && adminToken) {
       config.headers.Authorization = `Bearer ${adminToken}`;
       console.log('Using admin token for admin route:', config.url);
+      console.log('Admin token preview:', adminToken.substring(0, 50) + '...');
     } else if (token && !isAdminRoute) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('Using regular token for route:', config.url);
+    } else if (isAdminRoute && !adminToken) {
+      console.error('No admin token found for admin route:', config.url);
     }
     
     // Log para debugging (remover en producción)
