@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useShoppingCart } from '../contexts/ShoppingCartContext';
 import SearchBar from './SearchBar';
 import QuickCart from './QuickCart';
+import NotificationBell from '../pages/NotificationBell';
 
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
@@ -133,7 +134,10 @@ const Navbar = () => {
                 </span>
               )}
             </button>
-              {isAuthenticated ? (
+            {isAuthenticated && (
+              <NotificationBell />
+            )}
+            {isAuthenticated ? (
               <div className="relative group">
                 <button className="flex items-center text-gray-800 hover:text-red-600 transition-colors">
                   <User size={20} />
@@ -185,6 +189,12 @@ const Navbar = () => {
                 </span>
               )}
             </button>
+            
+            {isAuthenticated && (
+              <div className="p-1">
+                <NotificationBell />
+              </div>
+            )}
             
             <button
               onClick={() => {

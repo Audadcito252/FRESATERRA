@@ -259,21 +259,17 @@ function AuthProvider({ children }) {
         return response;
       }    } catch (error) {
       console.error('Registration failed:', error);
-
-      // Handle validation errors specifically
-      if (error.status === 422) {
-        if (error.validationErrors) {
-          // Format validation errors for display
-          const errorMessages = Object.entries(error.validationErrors)
-            .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
-            .join('\n');
-          throw new Error(errorMessages);
-        } else {
-          throw new Error(error.message || 'Error de validación');
-        }
+      // Manejo mejorado de errores
+      if (error.status === 422 && error.validationErrors) {
+        // Devolver un mensaje más detallado para la UI
+        const errorMessage = error.message || 'Error en el formulario de registro';
+        const enhancedError = new Error(errorMessage);
+        enhancedError.validationErrors = error.validationErrors;
+        throw enhancedError;
       }
 
-      throw new Error(error.message || 'Error en el registro');
+      // Para otro tipo de errores
+      throw new Error(error.message || 'Error al crear la cuenta. Por favor intente nuevamente.');
     } finally {
       setIsLoading(false);
     }

@@ -6,6 +6,7 @@ import { AuthProvider } from './contexts/AuthContext';
 
 // Layouts
 import MainLayout from './layouts/MainLayout';
+import AdminLayout from './layouts/AdminLayout';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -29,6 +30,8 @@ import PrivacyPage from './pages/PrivacyPage';
 import PaymentFailedPage from './pages/PaymentFailedPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import PaymentPendingPage from './pages/PaymentPendingPage';
+import AdminLoginPage from './pages/admin/AdminLoginPage';
+import AdminNotificationPage from './pages/admin/AdminNotificationPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -41,6 +44,7 @@ function App() {
         }}>
           <Toaster position="top-center" />
           <Routes>
+            {/* Public and User Routes */}
             <Route path="/" element={<MainLayout />}>
               <Route index element={<HomePage />} />              <Route path="products" element={<ProductsPage />} />
               <Route path="products/:id" element={<ProductDetailPage />} />              <Route path="about" element={<AboutPage />} />              <Route path="contact" element={<ContactPage />} />              <Route path="faq" element={<FAQPage />} />
@@ -62,8 +66,21 @@ function App() {
               <Route path="login" element={<LoginPage />} />
               <Route path="register" element={<RegisterPage />} />
               <Route path="reset-password" element={<ResetPasswordPage />} />
-              <Route path="*" element={<NotFoundPage />} />
+              {/* Catch-all for user-facing 404 */}
+              {/* <Route path="*" element={<NotFoundPage />} /> */}
             </Route>
+
+            {/* Admin Routes */}
+            <Route path="/admin/login" element={<AdminLoginPage />} />
+            <Route path="/admin" element={<AdminLayout />}>
+              {/* Default admin page could be a dashboard or notifications */}
+              <Route index element={<AdminNotificationPage />} /> 
+              <Route path="notifications" element={<AdminNotificationPage />} />
+              {/* Add other admin routes here, e.g., users, settings */}
+            </Route>
+            
+            {/* Global Catch-all for 404 - Make sure this is last */}
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Router>
       </ShoppingCartProvider>
