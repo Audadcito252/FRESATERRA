@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { mockProducts } from '../data/mockData';
 import { useShoppingCart } from '../contexts/ShoppingCartContext';
 import { useAuth } from '../contexts/AuthContext';
+import { reviewsService } from '../services/reviewsService';
 import ProductReview from '../components/ProductReview';
 import ReviewsList from '../components/ReviewsList';
 
@@ -13,22 +14,101 @@ const ProductDetailPage = () => {
   const { user } = useAuth();
   const [selectedImage, setSelectedImage] = useState(product ? product.images[0] : '');
   const [quantity, setQuantity] = useState(1);
-  const [reviews, setReviews] = useState(product ? product.reviews : []);
+  const [reviews, setReviews] = useState([]);
   const [reviewToEdit, setReviewToEdit] = useState(null);
-  const [averageRating, setAverageRating] = useState(product ? product.averageRating : 0);
-
-  // Encuentra la reseña del usuario actual si existe
-  const userReview = user && reviews.find(review => review.userId === user.id);
-
+  const [averageRating, setAverageRating] = useState(0);
+  const [totalReviews, setTotalReviews] = useState(0);
+  const [userReview, setUserReview] = useState(null);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(true);
+  
+  // Referencias para controlar las llamadas API
+  const reviewsLoaded = useRef(false);
+  const userReviewLoaded = useRef(false);
+  // Cargar reseñas del producto
+  const loadProductReviews = async () => {
+    if (!product) return;
+    
+    setIsLoadingReviews(true);
+    try {
+      console.log('Cargando reseñas del producto:', product.id);
+      const result = await reviewsService.getProductReviews(product.id);
+      
+      if (result.success && result.data) {
+        setReviews(result.data.reviews || []);
+        setAverageRating(result.data.average_rating || 0);
+        setTotalReviews(result.data.total_reviews || 0);
+      } else {
+        setReviews([]);
+        setAverageRating(0);
+        setTotalReviews(0);
+      }
+    } catch (error) {
+      console.error('Error loading reviews:', error);
+      setReviews([]);
+      setAverageRating(0);
+      setTotalReviews(0);
+    } finally {
+      setIsLoadingReviews(false);
+    }
+  };
+  // Cargar reseña del usuario actual
+  const loadUserReview = async () => {
+    if (!product || !user) return;
+    
+    try {
+      console.log('Cargando reseña del usuario para producto:', product.id);
+      const result = await reviewsService.getUserReview(product.id);
+      
+      if (result.success) {
+        if (result.notFound || !result.data) {
+          // El usuario no tiene reseña - esto es normal, no es un error
+          setUserReview(null);
+        } else {
+          // El usuario tiene una reseña
+          setUserReview(result.data);
+        }
+      } else {
+        // Error real del servidor (no es 404)
+        setUserReview(null);
+      }
+    } catch (error) {
+      console.error('Unexpected error loading user review:', error);
+      setUserReview(null);
+    }
+  };
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    
-    // Inicializar reviews y rating del producto
-    if (product) {
-      setReviews(product.reviews);
-      setAverageRating(product.averageRating);
+  }, [id]);
+  useEffect(() => {
+    // Reset de referencias cuando cambia el ID del producto
+    if (id) {
+      reviewsLoaded.current = false;
+      userReviewLoaded.current = false;
     }
-  }, [id, product]);
+    
+    // Cargar reseñas solo cuando cambie el producto y no se hayan cargado aún
+    if (product && !reviewsLoaded.current) {
+      reviewsLoaded.current = true; // Marcar como cargado
+      loadProductReviews();
+    }
+  }, [product, id]);
+  
+  // Efecto separado para cargar la reseña del usuario
+  useEffect(() => {
+    if (product && user && !userReviewLoaded.current) {
+      userReviewLoaded.current = true; // Marcar como cargado
+      loadUserReview();
+    } else if (!user) {
+      setUserReview(null); // Limpiar la reseña si el usuario cierra sesión
+    }
+  }, [product, user]);
+
+  useEffect(() => {
+    // Actualizar imagen seleccionada cuando cambie el producto
+    if (product) {
+      setSelectedImage(product.images[0]);
+    }
+  }, [product]);
 
   if (!product) {
     return (
@@ -50,30 +130,26 @@ const ProductDetailPage = () => {
   const handleQuantityChange = (e) => {
     const value = Math.max(1, Math.min(product.stock, Number(e.target.value)));
     setQuantity(value);
-  };
-
-  // Manejador para enviar una nueva reseña o actualizar una existente
-  const handleReviewSubmit = (reviewData, isEditing) => {
-    let updatedReviews;
-    
-    if (isEditing) {
-      // Actualizar una reseña existente
-      updatedReviews = reviews.map(review => 
-        review.id === reviewData.id ? reviewData : review
-      );
-    } else {
-      // Agregar una nueva reseña
-      updatedReviews = [...reviews, reviewData];
+  };  // Manejador para enviar una nueva reseña o actualizar una existente
+  const handleReviewSubmit = async (reviewData, isEditing) => {
+    try {
+      // Resetear las banderas de carga para permitir una nueva obtención de datos
+      reviewsLoaded.current = false;
+      userReviewLoaded.current = false;
+      
+      // Recargar las reseñas después de crear/actualizar (una sola vez)
+      await loadProductReviews();
+      await loadUserReview();
+      
+      // Marcar como cargados después de actualizar
+      reviewsLoaded.current = true;
+      userReviewLoaded.current = true;
+      
+      // Limpiar el estado de edición
+      setReviewToEdit(null);
+    } catch (error) {
+      console.error('Error handling review submit:', error);
     }
-    
-    setReviews(updatedReviews);
-    
-    // Calcular nuevo promedio
-    const newAverageRating = updatedReviews.reduce((acc, review) => acc + review.rating, 0) / updatedReviews.length;
-    setAverageRating(newAverageRating.toFixed(1));
-    
-    // Limpiar el estado de edición
-    setReviewToEdit(null);
   };
 
   // Manejador para editar una reseña
@@ -86,6 +162,12 @@ const ProductDetailPage = () => {
         reviewForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }, 100);
+  };
+
+  // Manejador para cancelar edición o creación de reseña
+  const handleReviewCancel = () => {
+    // Solo limpiar el estado de edición, sin hacer llamadas API
+    setReviewToEdit(null);
   };
 
   return (
@@ -217,36 +299,66 @@ const ProductDetailPage = () => {
                 <li key={key}><span className="font-medium">{key}:</span> {value}</li>
               ))}
             </ul>
-          </div>
-          {/* Average Rating y Reviews */}
+          </div>          {/* Average Rating y Reviews */}
           <div className="flex-1 md:border-l md:pl-8 border-gray-200">
             <div className="mb-2">
-              <span className="font-semibold text-lg text-gray-800">Promedio:</span> <span className="text-yellow-500 font-bold">{averageRating} / 5</span>
+              <span className="font-semibold text-lg text-gray-800">Promedio:</span> 
+              <span className="text-yellow-500 font-bold">
+                {averageRating} / 5 ({totalReviews} reseña{totalReviews !== 1 ? 's' : ''})
+              </span>
             </div>
             <div>
-              <span className="font-semibold text-lg text-gray-800 mb-4 block">Reseñas:</span>
-              <ReviewsList reviews={reviews} onEditReview={handleEditReview} />
-              
-              {/* Sección para agregar o editar reseña */}
-              <div id="review-form" className="mt-8">
-                {!userReview || reviewToEdit ? (
-                  <ProductReview 
-                    productId={product.id} 
-                    existingReview={reviewToEdit || userReview}
-                    onReviewSubmit={handleReviewSubmit}
-                  />
-                ) : (
-                  <div className="mt-4 bg-gray-50 rounded-lg p-4 text-center">
-                    <p className="text-gray-700">Ya has dejado una reseña para este producto.</p>
-                    <button
-                      onClick={() => handleEditReview(userReview)}
-                      className="mt-2 text-red-600 hover:text-red-800 font-medium"
-                    >
-                      Editar mi reseña
-                    </button>
+              <span className="font-semibold text-lg text-gray-800 mb-4 block">Reseñas:</span>              {isLoadingReviews ? (
+                <div className="text-center py-4">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+                  <p className="mt-2 text-gray-600">Cargando reseñas...</p>
+                </div>              ) : (
+                <>
+                  <ReviewsList reviews={reviews} onEditReview={handleEditReview} />
+                  
+                  {/* Sección para agregar o editar reseña - Solo visible cuando las reseñas están cargadas */}
+                  <div id="review-form" className="mt-8">
+                    {user ? (
+                      <>
+                        {userReview && !reviewToEdit ? (
+                          // Usuario ya tiene reseña y no está editando
+                          <div className="bg-green-50 rounded-lg p-6 text-center border border-green-200">
+                            <div className="text-green-500 mb-3">
+                              <svg className="w-12 h-12 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                            <h3 className="text-lg font-medium text-gray-800 mb-2">¡Gracias por tu reseña!</h3>
+                            <p className="text-gray-600 mb-4">Ya has dejado una reseña para este producto</p>
+                            <button
+                              onClick={() => handleEditReview(userReview)}
+                              className="bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-md transition-colors"
+                            >
+                              Editar mi reseña
+                            </button>
+                          </div>
+                        ) : (                      
+                          // Mostrar formulario (nueva reseña o editando)
+                          <ProductReview 
+                            productId={product.id} 
+                            existingReview={reviewToEdit || userReview}
+                            onReviewSubmit={handleReviewSubmit}
+                            onCancel={handleReviewCancel}
+                          />
+                        )}
+                      </>
+                    ) : (
+                      // Usuario no autenticado
+                      <ProductReview 
+                        productId={product.id} 
+                        existingReview={null}
+                        onReviewSubmit={handleReviewSubmit}
+                        onCancel={handleReviewCancel}
+                      />
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
           </div>
         </div>

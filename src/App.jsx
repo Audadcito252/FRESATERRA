@@ -22,7 +22,13 @@ import RegisterPage from './pages/RegisterPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import NotFoundPage from './pages/NotFoundPage';
 import AboutPage from './pages/AboutPage';
+import ContactPage from './pages/ContactPage';
+import FAQPage from './pages/FAQPage';
+import ShippingPage from './pages/ShippingPage';
+import TermsPage from './pages/TermsPage';
+import PrivacyPage from './pages/PrivacyPage';
 import PaymentFailedPage from './pages/PaymentFailedPage';
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import PaymentPendingPage from './pages/PaymentPendingPage';
 import AdminLoginPage from './pages/admin/AdminLoginPage';
 import AdminNotificationPage from './pages/admin/AdminNotificationPage';
@@ -40,30 +46,23 @@ function App() {
           <Routes>
             {/* Public and User Routes */}
             <Route path="/" element={<MainLayout />}>
-              <Route index element={<HomePage />} />
-              <Route path="products" element={<ProductsPage />} />
-              <Route path="products/:id" element={<ProductDetailPage />} />
-              <Route path="about" element={<AboutPage />} />
+              <Route index element={<HomePage />} />              <Route path="products" element={<ProductsPage />} />
+              <Route path="products/:id" element={<ProductDetailPage />} />              <Route path="about" element={<AboutPage />} />              <Route path="contact" element={<ContactPage />} />              <Route path="faq" element={<FAQPage />} />
+              <Route path="shipping" element={<ShippingPage />} />
+              <Route path="terms" element={<TermsPage />} />
+              <Route path="privacy" element={<PrivacyPage />} />
               <Route path="cart" element={<CartPage />} />
               <Route path="checkout" element={
                 <ProtectedRoute>
                   <CheckoutPage />
                 </ProtectedRoute>
-              } />
-              <Route path="order-confirmation/:id" element={<OrderConfirmationPage />} />
-              <Route path="pago-exitoso" element={<OrderConfirmationPage />} />
+              } />              <Route path="order-confirmation/:id" element={<OrderConfirmationPage />} />              <Route path="pago-exitoso" element={<PaymentSuccessPage />} />
               <Route path="pago-fallido" element={<PaymentFailedPage />} />
               <Route path="pago-pendiente" element={<PaymentPendingPage />} />
-              <Route path="profile" element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              } />
-              <Route path="orders" element={
-                <ProtectedRoute>
-                  <OrdersPage />
-                </ProtectedRoute>
-              } />
+              <Route path="register/pago-exitoso" element={<PaymentSuccessPage />} />
+              <Route path="register/pago-fallido" element={<PaymentFailedPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="orders" element={<OrdersPage />} />
               <Route path="login" element={<LoginPage />} />
               <Route path="register" element={<RegisterPage />} />
               <Route path="reset-password" element={<ResetPasswordPage />} />
