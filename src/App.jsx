@@ -30,6 +30,7 @@ import PrivacyPage from './pages/PrivacyPage';
 import PaymentFailedPage from './pages/PaymentFailedPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import PaymentPendingPage from './pages/PaymentPendingPage';
+import AuthCallbackPage from './pages/AuthCallbackPage';
 import AdminLoginPage from './pages/admin/AdminLoginPage';
 import AdminNotificationPage from './pages/admin/AdminNotificationPage';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -65,6 +66,7 @@ function App() {
               <Route path="orders" element={<OrdersPage />} />
               <Route path="login" element={<LoginPage />} />
               <Route path="register" element={<RegisterPage />} />
+              <Route path="auth/callback" element={<AuthCallbackPage />} />
               <Route path="reset-password" element={<ResetPasswordPage />} />
               {/* Catch-all for user-facing 404 */}
               {/* <Route path="*" element={<NotFoundPage />} /> */}

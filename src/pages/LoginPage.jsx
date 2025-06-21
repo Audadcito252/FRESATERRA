@@ -9,7 +9,7 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, loginWithFacebook } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -68,11 +68,24 @@ const LoginPage = () => {
     
     try {
       await loginWithGoogle();
-      toast.success('¡Inicio de sesión con Google exitoso!');
-      navigate('/');
+      // No necesitamos navegar ni mostrar mensaje aquí porque loginWithGoogle redirige directamente
     } catch (error) {
       console.error('Google login error:', error);
       toast.error('Error al iniciar sesión con Google. Por favor intenta de nuevo.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFacebookLogin = async () => {
+    setIsLoading(true);
+    
+    try {
+      await loginWithFacebook();
+      // No necesitamos navegar ni mostrar mensaje aquí porque loginWithFacebook redirige directamente
+    } catch (error) {
+      console.error('Facebook login error:', error);
+      toast.error('Error al iniciar sesión con Facebook. Por favor intenta de nuevo.');
     } finally {
       setIsLoading(false);
     }
@@ -178,19 +191,33 @@ const LoginPage = () => {
               <div className="flex-1 h-[1px] bg-[#ddd]"></div>
             </div>
 
-            <button 
-              type="button" 
-              onClick={handleGoogleLogin}
-              disabled={isLoading}
-              className="google-btn flex items-center justify-center w-full p-3 bg-white border border-[#ddd] rounded text-base cursor-pointer transition-colors hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              <img 
-                src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0yMC42NiAxMi42OWMwLS41Ny0uMDUtMS4xMi0uMTUtMS42N0gxMnYzLjE2aDQuODRhNC4xNCA0LjE0IDAgMCAxLTEuNzkgMi43djIuMjVoMi45YTguNzcgOC43NyAwIDAgMCAyLjcxLTYuNDR6IiBmaWxsPSIjNDI4NUY0Ii8+PHBhdGggZD0iTTEyIDIxYzIuNDMgMCA0LjQ3LS44IDUuOTUtMi4xOGwtMi45LTIuMjVjLS44LjU0LTEuODMuODYtMy4wNS44Ni0yLjM1IDAtNC4zNC0xLjU5LTUuMDUtMy43M0gzLjk1djIuMzJBOC45OTcgOC45OTcgMCAwIDAgMTIgMjF6IiBmaWxsPSIjMzRBODUzIi8+PHBhdGggZD0iTTYuOTUgMTMuMmMtLjE4LS41NC0uMjgtMS4xMy0uMjgtMS43MnMuMS0xLjE4LjI4LTEuNzJWNy40NEgzLjk1QTguOTk2IDguOTk2IDAgMCAwIDMgMTIuMDFjMCAxLjYuMzkgMy4xIDEuMDYgNC40MmwyLjg5LTIuMjN6IiBmaWxsPSIjRkJCQzA1Ii8+PHBhdGggZD0iTTEyIDYuNThjMS4zMiAwIDIuNS40NSAzLjQ0IDEuMzVsMi41OC0yLjU4QzE2LjQ2IDMuODkgMTQuNDMgMyAxMiAzQTguOTk3IDguOTk3IDAgMCAwIDMuOTUgNy40NGwyLjg5IDIuMjVDNy42NiA4LjE0IDkuNjUgNi41OCAxMiA2LjU4eiIgZmlsbD0iI0VBNDMzNSIvPjxwYXRoIGQ9Ik0zIDNoMTh2MThoLTE4eiIvPjwvZz48L3N2Zz4="
-                alt="Google"
-                className="mr-2.5 w-5 h-5"
-              />
-              Iniciar sesión con Google
-            </button>
+            <div className="flex flex-col sm:flex-row gap-4 mt-5">
+              <button 
+                type="button" 
+                onClick={handleGoogleLogin}
+                disabled={isLoading}
+                className="flex items-center justify-center w-full sm:w-1/2 py-2.5 px-4 bg-white border border-[#ddd] rounded-md text-sm font-medium text-gray-700 cursor-pointer transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <img 
+                  src="https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png" 
+                  alt="Google" 
+                  className="h-5 mr-2"
+                />
+                
+              </button>
+              
+              <button 
+                type="button" 
+                onClick={handleFacebookLogin}
+                disabled={isLoading}
+                className="flex items-center justify-center w-full sm:w-1/2 py-2.5 px-4 bg-[#1877F2] text-white border border-transparent rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" />
+                </svg>
+                Facebook
+              </button>
+            </div>
 
             <div className="register-link text-center mt-5 text-sm text-[#555]">
               ¿No tienes una cuenta? <Link to="/register" className="text-[#EC0617] font-semibold no-underline hover:underline">Registrarse</Link>

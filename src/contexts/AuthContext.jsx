@@ -170,48 +170,56 @@ function AuthProvider({ children }) {
   const loginWithGoogle = async () => {
     setIsLoading(true);
     try {
-      // In a real app, this would integrate with Google OAuth
-      const userData = {
-        id: '2',
-        email: 'user@example.com',
-        firstName: 'Google',
-        lastName: 'User',
-        address: '456 Tech Avenue',
-        city: 'Silicon Valley',
-        state: 'California',
-        zipCode: '94000',
-        phone: '555-987-6543',
-        // Agregamos pedidos simulados para usuarios de Google
-        orders: [
-          {
-            id: 'ORD-GOOG-1234',
-            date: '15/05/2025',
-            total: 65.97,
-            status: 'Entregado',
-            items: [
-              { name: 'Fresas Premium 1kg', price: 12.99, quantity: 3 },
-              { name: 'Jugo de Fresa Orgánico', price: 8.99, quantity: 3 }
-            ]
-          },
-          {
-            id: 'ORD-GOOG-5678',
-            date: '10/05/2025',
-            total: 42.98,
-            status: 'En camino',
-            items: [
-              { name: 'Fresa Deshidratada 200g', price: 7.99, quantity: 2 },
-              { name: 'Cesta de Regalo Deluxe', price: 24.99, quantity: 1 }
-            ]
-          }
-        ]
-      };
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
+      // Redirigir al backend para iniciar el flujo de OAuth con Google
+      window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/google/redirect`;
     } catch (error) {
-      console.error('Google login failed:', error);
-      throw error;
+      console.error('Google login error:', error);
+      throw new Error('Error al iniciar sesión con Google. Por favor intenta de nuevo.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loginWithFacebook = async () => {
+    setIsLoading(true);
+    try {
+      // Redirigir al backend para iniciar el flujo de OAuth con Facebook
+      window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/facebook/redirect`;
+    } catch (error) {
+      console.error('Facebook login error:', error);
+      throw new Error('Error al iniciar sesión con Facebook. Por favor intenta de nuevo.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSocialAuthCallback = async (token) => {
+    try {
+      // Guardar el token
+      localStorage.setItem('token', token);
+      
+      // Obtener datos del usuario
+      const userResponse = await api.get('/me');
+      
+      if (userResponse && userResponse.user) {
+        const user = userResponse.user;
+        
+        // Verificar si la cuenta está desactivada
+        if (user.status === 'inactive' || user.active === false || user.deactivated === true) {
+          throw new Error('Tu cuenta ha sido desactivada. Por favor, contacta al soporte para reactivarla.');
+        }
+        
+        localStorage.setItem('user', JSON.stringify(user));
+        setUser(user);
+        return user;
+      }
+      
+      throw new Error('No se pudieron obtener los datos del usuario');
+    } catch (error) {
+      console.error('Social auth callback error:', error);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      throw error;
     }
   };
 
@@ -590,6 +598,8 @@ function AuthProvider({ children }) {
         isLoading,
         login,
         loginWithGoogle,
+        loginWithFacebook,
+        handleSocialAuthCallback,
         register,
         logout,
         resetPassword,
