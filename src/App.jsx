@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { ShoppingCartProvider } from './contexts/ShoppingCartContext';
 import { AuthProvider } from './contexts/AuthContext';
+import MercadoPagoHandler from './components/MercadoPagoHandler';
 
 // Layouts
 import MainLayout from './layouts/MainLayout';
@@ -30,6 +31,7 @@ import PrivacyPage from './pages/PrivacyPage';
 import PaymentFailedPage from './pages/PaymentFailedPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import PaymentPendingPage from './pages/PaymentPendingPage';
+import ResumeOrderPage from './pages/ResumeOrderPage';
 import AdminLoginPage from './pages/admin/AdminLoginPage';
 import AdminNotificationPage from './pages/admin/AdminNotificationPage';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -42,6 +44,7 @@ function App() {
           v7_startTransition: true ,
           v7_relativeSplatPath: true
         }}>
+          <MercadoPagoHandler />
           <Toaster position="top-center" />
           <Routes>
             {/* Public and User Routes */}
@@ -61,6 +64,11 @@ function App() {
               <Route path="pago-pendiente" element={<PaymentPendingPage />} />
               <Route path="register/pago-exitoso" element={<PaymentSuccessPage />} />
               <Route path="register/pago-fallido" element={<PaymentFailedPage />} />
+              <Route path="register/pago-pendiente" element={<PaymentPendingPage />} />              <Route path="checkout/resume/:orderId" element={
+                <ProtectedRoute>
+                  <ResumeOrderPage />
+                </ProtectedRoute>
+              } />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="orders" element={<OrdersPage />} />
               <Route path="login" element={<LoginPage />} />

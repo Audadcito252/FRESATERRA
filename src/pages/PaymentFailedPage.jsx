@@ -25,8 +25,8 @@ const PaymentFailedPage = () => {
 
     // Redirigir automáticamente después de 15 segundos
     const timer = setTimeout(() => {
-      navigate('/checkout');
-    }, 15000);
+      navigate('/orders');
+    }, 10000);
 
     return () => clearTimeout(timer);
   }, [searchParams, navigate]);
@@ -113,7 +113,7 @@ const PaymentFailedPage = () => {
                 Ver Mis Pedidos
               </Link>
               <Link 
-                to="/checkout" 
+                to="/orders" 
                 className="inline-flex items-center justify-center px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
               >
                 <RefreshCw size={18} className="mr-2" />

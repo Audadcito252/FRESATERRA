@@ -97,7 +97,19 @@ const paymentsService = {
       console.error('Error confirmando pago exitoso:', error);
       throw error;
     }
-  },/**
+  },  /**
+   * Marcar un pedido como abandonado
+   */
+  markOrderAsAbandoned: async (orderId) => {
+    try {
+      return await api.post(`/orders/${orderId}/mark-abandoned`);
+    } catch (error) {
+      console.error('Error marcando pedido como abandonado:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Obtener información de pago por pedido
    */
   getPaymentByOrder: async (orderId) => {

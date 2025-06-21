@@ -10,16 +10,14 @@ const PaymentSuccessPage = () => {
     const { clearCart } = useShoppingCart();
     const navigate = useNavigate();
     const [orderInfo, setOrderInfo] = useState(null);
-    const [isProcessing, setIsProcessing] = useState(false);
-
-    // Memoize the payment confirmation function to prevent recreating on every render
+    const [isProcessing, setIsProcessing] = useState(false);    // Memoize the payment confirmation function to prevent recreating on every render
     const handlePaymentConfirmation = useCallback(async (orderId, paymentId, status) => {
         if (isProcessing) return; // Prevent multiple calls
         
         setIsProcessing(true);
         
         try {
-            await paymentsService.handlePaymentSuccess({
+            const response = await paymentsService.handlePaymentSuccess({
                 order_id: orderId,
                 payment_id: paymentId,
                 status: status
@@ -33,9 +31,7 @@ const PaymentSuccessPage = () => {
         } finally {
             setIsProcessing(false);
         }
-    }, [isProcessing]);
-
-    useEffect(() => {
+    }, [isProcessing]);    useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
         
         // Obtener información de la URL
@@ -49,6 +45,12 @@ const PaymentSuccessPage = () => {
                 paymentId,
                 status
             });
+
+            // Limpiar INMEDIATAMENTE las banderas de sessionStorage para evitar 
+            // que useMercadoPagoAbandonment marque el pedido como abandonado
+            sessionStorage.removeItem('redirectedToMercadoPago');
+            sessionStorage.removeItem('pendingOrderId');
+            console.log('Banderas de sessionStorage limpiadas en PaymentSuccessPage');
 
             // Confirmar el pago en el backend solo una vez
             handlePaymentConfirmation(orderId, paymentId, status);
@@ -148,7 +150,7 @@ const PaymentSuccessPage = () => {
 
                         {/* Action Buttons */}
                         <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">                            <Link
-                                to="/profile"
+                                to="/orders"
                                 className="inline-flex items-center justify-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                             >
                                 <Receipt size={18} className="mr-2" />

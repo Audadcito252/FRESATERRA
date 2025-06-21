@@ -10,6 +10,10 @@ function OrdersPage() {
   // Estado para el modal
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Estados para acciones de reanudar/cancelar
+  const [resumeLoading, setResumeLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
 
   // Estado para la búsqueda por ID
   const [searchOrderId, setSearchOrderId] = useState('');
@@ -86,7 +90,47 @@ function OrdersPage() {
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedOrder(null);
+  };  // Función para reanudar un pedido abandonado
+  const handleResumeOrder = async (orderId) => {
+    try {
+      setResumeLoading(true);
+      console.log('handleResumeOrder called with orderId:', orderId);
+      // Redirigir a la página de resumen del pedido
+      window.location.href = `/checkout/resume/${orderId}`;
+    } catch (error) {
+      console.error('Error al reanudar el pedido:', error);
+      toast.error('No se pudo reanudar el pedido. Intenta nuevamente más tarde.');
+    } finally {
+      setResumeLoading(false);
+    }
   };
+  
+  // Función para cancelar un pedido
+  const handleCancelOrder = async (orderId) => {
+    if (!confirm('¿Estás seguro que deseas cancelar este pedido?')) {
+      return;
+    }
+    
+    try {
+      setCancelLoading(true);
+      await ordersService.cancelOrder(orderId);
+      toast.success('Pedido cancelado exitosamente');
+      
+      // Actualizar la lista de pedidos
+      fetchOrders();
+      
+      // Cerrar el modal si estaba abierto
+      if (isModalOpen && selectedOrder?.id_pedido === orderId) {
+        closeModal();
+      }
+    } catch (error) {
+      console.error('Error cancelando pedido:', error);
+      toast.error('Error al cancelar el pedido. Intenta nuevamente.');
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+  
   // Función para calcular el total de productos en un pedido
   const getTotalProducts = (order) => {
     if (!order.detalles || !Array.isArray(order.detalles)) return 0;
@@ -288,13 +332,25 @@ function OrdersPage() {
 
                     {/* Acciones */}
                     <div className="col-span-2">
-                      <button
-                        onClick={() => openOrderDetails(order)}
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                        Ver detalles
-                      </button>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={() => openOrderDetails(order)}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
+                        >
+                          <Eye className="w-4 h-4" />
+                          Ver detalles
+                        </button>
+
+                        {order.estado === 'abandonado' && (
+                          <button
+                            onClick={() => handleResumeOrder(order.id_pedido)}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            Reanudar pago
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -330,13 +386,25 @@ function OrdersPage() {
                       <div className="text-sm text-gray-600">
                         {getTotalProducts(order)} {getTotalProducts(order) === 1 ? 'producto' : 'productos'}
                       </div>
-                      <button
-                        onClick={() => openOrderDetails(order)}
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                        Ver detalles
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => openOrderDetails(order)}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
+                        >
+                          <Eye className="w-4 h-4" />
+                          Ver detalles
+                        </button>
+
+                        {order.estado === 'abandonado' && (
+                          <button
+                            onClick={() => handleResumeOrder(order.id_pedido)}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            Reanudar
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -402,9 +470,25 @@ function OrdersPage() {
                       <Package className="w-5 h-5 text-gray-600" />
                       <h3 className="font-medium text-gray-900">Estado</h3>
                     </div>
-                    <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${getStatusClass(selectedOrder.estado)}`}>
-                      {formatOrderStatus(selectedOrder.estado)}
-                    </span>
+                    <div className="mt-2">
+                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(selectedOrder.estado)}`}>
+                        {formatOrderStatus(selectedOrder.estado)}
+                      </span>
+                      
+                      {selectedOrder.estado === 'abandonado' && (
+                        <div className="mt-4">
+                          <p className="text-sm text-gray-600 mb-2">El pago de este pedido no fue completado.</p>
+                          <button
+                            onClick={() => handleResumeOrder(selectedOrder.id_pedido)}
+                            disabled={resumeLoading}
+                            className="inline-flex items-center gap-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors w-full justify-center"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            {resumeLoading ? 'Procesando...' : 'Reanudar Pago'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>                  {/* Método de pago */}
                   <div className="bg-gray-50 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-2">

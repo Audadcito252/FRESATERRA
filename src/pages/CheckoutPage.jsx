@@ -182,7 +182,9 @@ const CheckoutPage = () => {
     
     if (currentStep === 2) {
       // Paso 1: Crear el pedido en la base de datos ANTES de procesar el pago
-      try {        // Preparar datos del checkout para el backend
+      let newOrderId = null; // Declarar en scope más amplio para que esté disponible en el catch
+      try {        
+        // Preparar datos del checkout para el backend
         const checkoutData = {
           items: cartItems.map(item => ({
             product_id: parseInt(item.product.id), // Convertir string a número para que coincida con id_producto
@@ -243,16 +245,18 @@ const CheckoutPage = () => {
             }
           };
         }        console.log('Creando pedido con datos:', checkoutData);
-        
-        // Crear el pedido en la base de datos
+          // Crear el pedido en la base de datos
         const orderResponse = await ordersService.createOrder(checkoutData);
         console.log('Respuesta del servidor:', orderResponse);
-        
-        if (orderResponse && orderResponse.order_id) {
-          const newOrderId = orderResponse.order_id;
+          if (orderResponse && orderResponse.order_id) {
+          newOrderId = orderResponse.order_id;
           setOrderId(newOrderId);
           
           toast.success('Pedido creado exitosamente. Redirigiendo a Mercado Pago...');
+          
+          // Limpiar el carrito inmediatamente después de crear el pedido exitosamente
+          clearCart();
+          console.log('Carrito vaciado después de crear el pedido');
           
           // Paso 2: Crear preferencia de Mercado Pago
           const itemsForMercadoPago = cartItems.map(item => ({
@@ -281,16 +285,40 @@ const CheckoutPage = () => {
             }
           };
 
-          const response = await api.post('/create-preference', mercadoPagoData);
-          
+          const response = await api.post('/create-preference', mercadoPagoData);          
           setIsSubmitting(false); // Detener el indicador de carga después de la respuesta
 
           if (response.init_point) {
+            // Marcar que estamos redirigiendo a Mercado Pago y guardar el ID del pedido
+            sessionStorage.setItem('redirectedToMercadoPago', 'true');
+            sessionStorage.setItem('pendingOrderId', newOrderId);
+            
+            // Redirigir a Mercado Pago
             window.location.href = response.init_point;
           } else if (response.sandbox_init_point) { // Para entorno de pruebas
-            window.location.href = response.sandbox_init_point;
-          } else {
+            // Para entorno de pruebas
+            sessionStorage.setItem('redirectedToMercadoPago', 'true');
+            sessionStorage.setItem('pendingOrderId', newOrderId);
+            
+            window.location.href = response.sandbox_init_point;          } else {
             console.error('No init_point received from Mercado Pago');
+            
+            // Marcar el pedido como abandonado ya que no se puede redirigir a Mercado Pago
+            try {
+              await paymentsService.markOrderAsAbandoned(newOrderId);
+              console.log('Pedido marcado como abandonado debido a falta de init_point');
+            } catch (abandonError) {
+              console.log('Error al marcar como abandonado con auth, intentando endpoint público:', abandonError);
+                try {
+                await api.post(`/orders/${newOrderId}/mark-abandoned`, {
+                  reason: 'no_init_point_received'
+                });
+                console.log('Pedido marcado como abandonado exitosamente (endpoint público)');
+              } catch (publicAbandonError) {
+                console.error('Error al marcar pedido como abandonado (público):', publicAbandonError);
+              }
+            }
+            
             toast.error('Error: No se recibió el punto de inicio para el pago de Mercado Pago.');
           }
         } else {
@@ -298,6 +326,27 @@ const CheckoutPage = () => {
         }} catch (error) {
         setIsSubmitting(false);
         console.error('Error en el proceso de checkout:', error);
+          // Si se creó un pedido pero falló la comunicación con Mercado Pago, marcarlo como abandonado
+        if (newOrderId) {
+          console.log('Marcando pedido como abandonado debido a error de comunicación con Mercado Pago. Order ID:', newOrderId);
+          
+          try {
+            // Intentar marcar el pedido como abandonado usando el endpoint con autenticación
+            await paymentsService.markOrderAsAbandoned(newOrderId);
+            console.log('Pedido marcado como abandonado exitosamente (con auth)');
+          } catch (abandonError) {
+            console.log('Error al marcar como abandonado con auth, intentando endpoint público:', abandonError);
+            
+            try {              // Fallback al endpoint público si falla la autenticación
+              await api.post(`/orders/${newOrderId}/mark-abandoned`, {
+                reason: 'mercado_pago_communication_error'
+              });
+              console.log('Pedido marcado como abandonado exitosamente (endpoint público)');
+            } catch (publicAbandonError) {
+              console.error('Error al marcar pedido como abandonado (público):', publicAbandonError);
+            }
+          }
+        }
         
         // Acceder a los datos del error de manera más robusta
         let errorData = null;
@@ -336,9 +385,8 @@ const CheckoutPage = () => {
               // Asegurar que el mensaje es una cadena antes de mostrarlo
               const errorMsg = typeof msg === 'string' ? msg : JSON.stringify(msg);
               toast.error(errorMsg);
-            });
-          } else {
-            toast.error(errorData.message || errorData.error || 'Error en el checkout');
+            });          } else {
+            toast.error(errorData.message || errorData.error || 'Error al comunicar con Mercado Pago');
           }
         } else if (error.message) {
           toast.error(error.message);

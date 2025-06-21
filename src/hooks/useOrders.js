@@ -105,7 +105,8 @@ const useOrders = () => {
       'preparando': 'Preparando',
       'enviado': 'Enviado',
       'entregado': 'Entregado',
-      'cancelado': 'Cancelado'
+      'cancelado': 'Cancelado',
+      'abandonado': 'Pago no completado'
     };
     
     return statusMap[status] || status;
@@ -119,7 +120,8 @@ const useOrders = () => {
       'preparando': 'bg-purple-100 text-purple-800',
       'enviado': 'bg-indigo-100 text-indigo-800',
       'entregado': 'bg-green-100 text-green-800',
-      'cancelado': 'bg-red-100 text-red-800'
+      'cancelado': 'bg-red-100 text-red-800',
+      'abandonado': 'bg-orange-100 text-orange-800'
     };
     
     return statusClasses[status] || 'bg-gray-100 text-gray-800';
