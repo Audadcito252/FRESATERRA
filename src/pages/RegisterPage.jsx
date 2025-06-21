@@ -18,7 +18,8 @@ const RegisterPage = () => {
     password: '',
     confirmPassword: '',
     acceptTerms: ''
-  });  const [formData, setFormData] = useState({
+  });
+  const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
@@ -502,8 +503,9 @@ const RegisterPage = () => {
               </div>
               {errors.acceptTerms && (
                 <p className="error-message text-[#EC0617] text-sm mt-2 ml-7">{errors.acceptTerms}</p>
-              )}              <div className="mt-2 ml-7 text-xs text-gray-500">
-                <p>Al registrarte, confirmas que tienes al menos 18 años. Solo recibirás comunicaciones relacionadas con tus pedidos y actualizaciones importantes del servicio.</p>
+              )}
+              <div className="mt-2 ml-7 text-xs text-gray-500">
+                <p>Al registrarte, confirmas que tienes al menos 18 años y aceptas recibir comunicaciones comerciales de Fresaterra.</p>
               </div>
             </div>
 
