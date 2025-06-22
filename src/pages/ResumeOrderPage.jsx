@@ -30,10 +30,15 @@ const ResumeOrderPage = () => {
           setLoading(true);
           const orderDetails = await ordersService.getOrderDetails(orderId);
             console.log('Order details response:', orderDetails);
-          
-          if (orderDetails && orderDetails.order && orderDetails.order.estado === 'abandonado') {
+            if (orderDetails && orderDetails.order && orderDetails.order.estado === 'abandonado') {
             setOrder(orderDetails.order);
             console.log('Order set successfully:', orderDetails.order);
+            console.log('🔍 Order envios array:', orderDetails.order.envios);
+            console.log('🔍 Order envio direct:', orderDetails.order.envio);
+            if (orderDetails.order.envios && orderDetails.order.envios.length > 0) {
+              console.log('🔍 First envio:', orderDetails.order.envios[0]);
+              console.log('🔍 Monto envio:', orderDetails.order.envios[0].monto_envio);
+            }
           } else if (orderDetails && orderDetails.order && orderDetails.order.estado !== 'abandonado') {
             setError(`Este pedido tiene estado "${orderDetails.order.estado}" y no puede ser reanudado`);
           } else {
@@ -59,24 +64,29 @@ const ResumeOrderPage = () => {
       
       // Reanudar el pedido primero
       await ordersService.resumeOrder(orderId);
-      
-      // Recrear la preferencia de Mercado Pago para este pedido
+        // Recrear la preferencia de Mercado Pago para este pedido usando snapshots
       const items = order.pedido_items.map(item => ({
-        title: item.producto.nombre,
+        title: item.producto_nombre_snapshot || item.producto?.nombre || 'Producto',
         quantity: item.cantidad,
         unit_price: Math.round(parseFloat(item.precio)),
-        description: item.producto.descripcion || undefined,
-      }));
-      
-      // Agregar envío si corresponde
-      if (order.envio && order.envio.monto_envio > 0) {
+        description: item.producto_descripcion_snapshot || item.producto?.descripcion || undefined,
+      }));        // Agregar envío si corresponde (solo si tiene costo > 0)
+      const envio = order.envios && order.envios.length > 0 ? order.envios[0] : order.envio;
+      if (envio && parseFloat(envio.monto_envio) > 0) {
         items.push({
           title: "Costo de envío",
           quantity: 1,
-          unit_price: Math.round(parseFloat(order.envio.monto_envio)),
+          unit_price: Math.round(parseFloat(envio.monto_envio)),
           description: "Envío a domicilio"
         });
       }
+      
+      // Log para debug del total
+      const calculatedTotal = items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+      console.log('🔍 Items para Mercado Pago:', items);
+      console.log('🔍 Total calculado:', calculatedTotal);
+      console.log('🔍 Total del pedido:', order.monto_total);
+      console.log('🔍 Envío del pedido:', envio);
       
       const mercadoPagoData = {
         items,
@@ -169,18 +179,57 @@ const ResumeOrderPage = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {order.pedido_items.map((item, index) => (
                     <tr key={index}>
-                      <td className="px-4 py-3 whitespace-nowrap">{item.producto?.nombre || 'Producto'}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {/* Imagen del producto */}
+                          <img
+                            src={item.producto_imagen_snapshot || item.producto?.url_imagen || '/img/placeholder.jpg'}
+                            alt={item.producto_nombre_snapshot || item.producto?.nombre || 'Producto'}
+                            className="w-12 h-12 object-cover rounded-lg bg-gray-100"
+                            onError={(e) => {
+                              e.target.src = '/img/placeholder.jpg';
+                            }}
+                          />
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              {item.producto_nombre_snapshot || item.producto?.nombre || 'Producto'}
+                            </div>                            {/* Mostrar costo de envío junto al primer producto */}
+                            {index === 0 && (() => {
+                              const envio = order.envios && order.envios.length > 0 ? order.envios[0] : order.envio;
+                              if (envio && envio.monto_envio > 0) {
+                                return (
+                                  <div className="text-sm text-green-600 font-medium">
+                                    + Envío: S/ {parseFloat(envio.monto_envio).toFixed(2)}
+                                  </div>
+                                );
+                              } else if (envio && envio.monto_envio === 0) {
+                                return (
+                                  <div className="text-sm text-green-600 font-medium">
+                                    + Envío: GRATIS
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
+                        </div>
+                      </td>
                       <td className="px-4 py-3 whitespace-nowrap">{item.cantidad}</td>
                       <td className="px-4 py-3 whitespace-nowrap">S/ {parseFloat(item.precio).toFixed(2)}</td>
-                    </tr>
-                  ))}
-                  {order.envio && order.envio.monto_envio > 0 && (
-                    <tr>
-                      <td className="px-4 py-3 whitespace-nowrap">Envío</td>
-                      <td className="px-4 py-3 whitespace-nowrap">1</td>
-                      <td className="px-4 py-3 whitespace-nowrap">S/ {parseFloat(order.envio.monto_envio).toFixed(2)}</td>
-                    </tr>
-                  )}
+                    </tr>                  ))}
+                  {(() => {
+                    const envio = order.envios && order.envios.length > 0 ? order.envios[0] : order.envio;
+                    if (envio && envio.monto_envio > 0) {
+                      return (
+                        <tr>
+                          <td className="px-4 py-3 whitespace-nowrap">Envío</td>
+                          <td className="px-4 py-3 whitespace-nowrap">1</td>
+                          <td className="px-4 py-3 whitespace-nowrap">S/ {parseFloat(envio.monto_envio).toFixed(2)}</td>
+                        </tr>
+                      );
+                    }
+                    return null;
+                  })()}
                 </tbody>
                 <tfoot className="bg-gray-50">
                   <tr>

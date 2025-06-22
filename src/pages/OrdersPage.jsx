@@ -34,6 +34,64 @@ function OrdersPage() {
     hasOrders
   } = useOrders();
 
+  // 🔧 FUNCIONES HELPER PARA SNAPSHOTS
+  
+  // Función para obtener datos del producto (snapshot o actual)
+  const getProductData = (pedidoItem) => {
+    return {
+      nombre: pedidoItem.producto_nombre_snapshot || pedidoItem.producto?.nombre || 'Producto no disponible',
+      descripcion: pedidoItem.producto_descripcion_snapshot || pedidoItem.producto?.descripcion || '',
+      imagen: pedidoItem.producto_imagen_snapshot || pedidoItem.producto?.url_imagen || '/img/placeholder.jpg',
+      peso: pedidoItem.producto_peso_snapshot || pedidoItem.producto?.peso || '',
+      categoria: pedidoItem.categoria_nombre_snapshot || pedidoItem.producto?.categoria?.nombre || 'Sin categoría',
+      precio: pedidoItem.precio, // Este siempre está en pedido_items
+      cantidad: pedidoItem.cantidad,
+      subtotal: pedidoItem.subtotal
+    };
+  };
+  // Función para obtener datos de dirección (snapshot o actual) - optimizada
+  const getShippingAddress = (envio) => {
+    // Priorizar snapshot si existe
+    if (envio.direccion_linea1_snapshot) {
+      return {
+        linea1: envio.direccion_linea1_snapshot,
+        linea2: envio.direccion_linea2_snapshot || '',
+        ciudad: envio.direccion_ciudad_snapshot || '',
+        estado: envio.direccion_estado_snapshot || '',
+        formatted: `${envio.direccion_linea1_snapshot} ${envio.direccion_linea2_snapshot || ''}, ${envio.direccion_ciudad_snapshot || ''}`.trim()
+      };
+    }
+    
+    // Fallback a datos actuales de la relación
+    if (envio.direccion) {
+      return {
+        linea1: envio.direccion.calle + ' ' + envio.direccion.numero,
+        linea2: envio.direccion.referencia || '',
+        ciudad: envio.direccion.ciudad,
+        estado: envio.direccion.distrito,
+        formatted: `${envio.direccion.calle} ${envio.direccion.numero}, ${envio.direccion.distrito}, ${envio.direccion.ciudad}`
+      };
+    }
+    
+    return {
+      formatted: 'Dirección no disponible'
+    };
+  };
+  // Función para obtener datos del transportista (snapshot o actual)
+  const getTransportistData = (envio) => {
+    return {
+      nombre: envio.transportista_nombre_snapshot || envio.transportista?.nombre || 'Transportista no asignado',
+      telefono: envio.transportista_telefono_snapshot || envio.transportista?.telefono || ''
+    };
+  };
+
+  // Función para obtener datos del método de pago (snapshot o actual)
+  const getPaymentMethodData = (pago) => {
+    return {
+      nombre: pago.metodo_pago_nombre_snapshot || pago.metodos_pago?.nombre || 'Método no disponible'
+    };
+  };
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
@@ -489,15 +547,30 @@ function OrdersPage() {
                         </div>
                       )}
                     </div>
-                  </div>                  {/* Método de pago */}
+                  </div>                  {/* Método de pago - usar helper para snapshots */}
                   <div className="bg-gray-50 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <CreditCard className="w-5 h-5 text-gray-600" />
                       <h3 className="font-medium text-gray-900">Pago</h3>
                     </div>
-                    <p className="text-sm text-gray-700">
-                      {getPaymentMethodName(selectedOrder)}
-                    </p>
+                    {(() => {
+                      // 🔧 Usar helper para obtener método de pago (snapshot o actual)
+                      if (selectedOrder.pagos && selectedOrder.pagos.length > 0) {
+                        const primerPago = selectedOrder.pagos[0];
+                        const paymentData = getPaymentMethodData(primerPago);                        return (
+                          <div>
+                            <p className="text-sm text-gray-700 font-medium">{paymentData.nombre}</p>
+                          </div>
+                        );
+                      }
+                      
+                      // Fallback usando la función legacy
+                      return (
+                        <p className="text-sm text-gray-700">
+                          {getPaymentMethodName(selectedOrder)}
+                        </p>
+                      );
+                    })()}
                   </div>
 
                   {/* Total */}
@@ -567,47 +640,35 @@ function OrdersPage() {
                           })}
                         </p>
                       </div>
-                    )}                    {/* Dirección de envío - siempre mostrar si existe */}
+                    )}                    {/* Dirección de envío - usar helper para snapshots */}
                     <div className="bg-gray-50 rounded-lg p-4">
                       <div className="flex items-start gap-2">
                         <MapPin className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
                         <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 mb-1">Dirección de Entrega</h4>                          {(() => {
-                            console.log('Información de dirección en selectedOrder:', {
-                              shipping_info: selectedOrder.shipping_info,
-                              direccion_envio: selectedOrder.direccion_envio,
-                              envio: selectedOrder.envio,
-                              direccion: selectedOrder.direccion,
-                              envios: selectedOrder.envios,
-                              direccion_completa: selectedOrder.direccion_completa,
-                              direccion_calle: selectedOrder.direccion_calle,
-                            });
-
-                            // NUEVO: Intentar primero la nueva estructura donde envio tiene relación con dirección
-                            if (selectedOrder.envio && selectedOrder.envio.direccion) {
-                              const direccion = selectedOrder.envio.direccion;
-                              let direccionTexto = '';
-
-                              // Si tiene la propiedad formatted_address, usamos esa
-                              if (direccion.formatted_address) {
-                                direccionTexto = direccion.formatted_address;
-                              } else {
-                                // Construimos manualmente a partir de los campos individuales
-                                const partes = [];
-                                if (direccion.calle) partes.push(direccion.calle);
-                                if (direccion.numero) partes.push(direccion.numero);
-                                if (direccion.distrito) partes.push(direccion.distrito);
-                                if (direccion.ciudad) partes.push(direccion.ciudad || 'Cusco');
-
-                                direccionTexto = partes.join(', ');
-                              }
-
-                              if (direccionTexto) {
-                                return <p className="text-sm text-gray-700">{direccionTexto}</p>;
+                          <h4 className="font-medium text-gray-900 mb-1">Dirección de Entrega</h4>
+                          
+                          {(() => {
+                            // 🔧 Usar helper para obtener dirección (snapshot o actual)
+                            if (selectedOrder.envio) {
+                              const addressData = getShippingAddress(selectedOrder.envio);
+                              if (addressData.formatted && addressData.formatted !== 'Dirección no disponible') {                                return (
+                                  <div>
+                                    <p className="text-sm text-gray-700 mb-2">{addressData.formatted}</p>
+                                  </div>
+                                );
                               }
                             }
 
-                            // 1. Intenta usar la información de shipping_info (LEGACY)
+                            // Fallback para múltiples envíos (legacy)
+                            if (selectedOrder.envios && selectedOrder.envios.length > 0) {
+                              const primerEnvio = selectedOrder.envios[0];
+                              const addressData = getShippingAddress(primerEnvio);
+                              if (addressData.formatted && addressData.formatted !== 'Dirección no disponible') {
+                                return <p className="text-sm text-gray-700">{addressData.formatted}</p>;
+                              }
+                            }
+
+                            // 🔧 LEGACY FALLBACKS - mantener para compatibilidad hacia atrás
                             if (selectedOrder.shipping_info) {
                               const info = selectedOrder.shipping_info;
                               let direccionTexto = '';
@@ -735,23 +796,48 @@ function OrdersPage() {
                         </div>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Información del transportista */}
-                  {selectedOrder.envio?.transportista && (
-                    <div className="mt-4 bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Truck className="w-4 h-4 text-gray-600" />
-                        <h4 className="font-medium text-gray-900">Transportista</h4>
-                      </div>
-                      <div className="text-sm text-gray-700">
-                        <p><strong>Nombre:</strong> {selectedOrder.envio.transportista.nombre || 'No especificado'}</p>
-                        {selectedOrder.envio.transportista.telefono && (
-                          <p><strong>Teléfono:</strong> {selectedOrder.envio.transportista.telefono}</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  </div>                  {/* Información del transportista - usar helper para snapshots */}
+                  {(() => {
+                    // 🔧 Usar helper para obtener datos del transportista (snapshot o actual)
+                    if (selectedOrder.envio) {
+                      const transportistData = getTransportistData(selectedOrder.envio);
+                      if (transportistData.nombre && transportistData.nombre !== 'Transportista no asignado') {
+                        return (
+                          <div className="mt-4 bg-gray-50 rounded-lg p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Truck className="w-4 h-4 text-gray-600" />
+                              <h4 className="font-medium text-gray-900">Transportista</h4>
+                            </div>                            <div className="text-sm text-gray-700">
+                              <p><strong>Nombre:</strong> {transportistData.nombre}</p>
+                              {transportistData.telefono && (
+                                <p><strong>Teléfono:</strong> {transportistData.telefono}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }
+                    }
+                    
+                    // Fallback para el caso legacy
+                    if (selectedOrder.envio?.transportista) {
+                      return (
+                        <div className="mt-4 bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Truck className="w-4 h-4 text-gray-600" />
+                            <h4 className="font-medium text-gray-900">Transportista</h4>
+                          </div>
+                          <div className="text-sm text-gray-700">
+                            <p><strong>Nombre:</strong> {selectedOrder.envio.transportista.nombre || 'No especificado'}</p>
+                            {selectedOrder.envio.transportista.telefono && (
+                              <p><strong>Teléfono:</strong> {selectedOrder.envio.transportista.telefono}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    return null;
+                  })()}
                 </div>                {/* Productos del pedido */}
                 <div>
                   <div className="flex items-center gap-2 mb-4">
@@ -789,7 +875,8 @@ function OrdersPage() {
                             detalle.id_pedido_items ||
                             detalle.id_producto ||
                             detalle.producto?.id_producto ||
-                            `${selectedOrder.id_pedido}-${index}`;
+                            `${selectedOrder.id_pedido}-${index}`;                          // 🔧 Usar helper para obtener datos del producto (snapshot o actual)
+                          const productData = getProductData(detalle);
 
                           return (
                             <div key={`producto-${uniqueKey}`} className="border border-gray-200 rounded-lg p-4">
@@ -798,38 +885,64 @@ function OrdersPage() {
                                   {/* Información del producto */}
                                   <div className="flex flex-col md:flex-row md:items-center gap-4">
                                     {/* Imagen del producto */}
-                                    {(detalle.url_imagen || detalle.producto?.url_imagen || detalle.producto?.imagen) && (
+                                    {productData.imagen && (
                                       <img
-                                        src={detalle.url_imagen || detalle.producto?.url_imagen || detalle.producto?.imagen}
-                                        alt={detalle.nombre_producto || detalle.producto?.nombre || 'Producto'}
+                                        src={productData.imagen}
+                                        alt={productData.nombre}
                                         className="w-16 h-16 object-cover rounded-lg bg-gray-100 mx-auto md:mx-0"
                                         onError={(e) => {
                                           e.target.style.display = 'none'; // Oculta la imagen si hay error al cargarla
                                         }}
                                       />
                                     )}
-                                    <div className="flex-1 text-center md:text-left">
-                                      <h4 className="font-medium text-gray-900 mb-1">
-                                        {detalle.nombre_producto ||
-                                          detalle.producto?.nombre ||
-                                          detalle.nombre ||
-                                          detalle.producto?.nombre_producto ||
-                                          'Producto sin nombre'}
+                                    <div className="flex-1 text-center md:text-left">                                      <h4 className="font-medium text-gray-900 mb-1">
+                                        {productData.nombre}
                                       </h4>
-                                      {(detalle.descripcion || detalle.producto?.descripcion) && (
+                                      {/* Mostrar costo de envío junto al primer producto */}
+                                      {index === 0 && (() => {
+                                        const rawCost = selectedOrder.costo_envio ?? selectedOrder.envio?.monto_envio;
+                                        if (rawCost !== undefined && rawCost !== null) {
+                                          const numericCost = parseFloat(rawCost);
+                                          if (!isNaN(numericCost)) {
+                                            if (numericCost > 0) {
+                                              return (
+                                                <div className="text-sm text-green-600 font-medium mb-2">
+                                                  Envío: S/ {numericCost.toFixed(2)}
+                                                </div>
+                                              );
+                                            } else {
+                                              return (
+                                                <div className="text-sm text-green-600 font-medium mb-2">
+                                                  Envío: GRATIS
+                                                </div>
+                                              );
+                                            }
+                                          }
+                                        }
+                                        return null;
+                                      })()}
+                                      {productData.descripcion && (
                                         <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                                          {detalle.descripcion || detalle.producto?.descripcion}
+                                          {productData.descripcion}
+                                        </p>
+                                      )}
+                                      {productData.categoria && productData.categoria !== 'Sin categoría' && (
+                                        <p className="text-xs text-blue-600 mb-2">
+                                          <strong>Categoría:</strong> {productData.categoria}
+                                        </p>
+                                      )}
+                                      {productData.peso && (
+                                        <p className="text-xs text-gray-500 mb-2">
+                                          <strong>Peso:</strong> {productData.peso}
                                         </p>
                                       )}
                                       <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-sm">
                                         <span className="text-gray-600">
-                                          <strong>Cantidad:</strong> {detalle.cantidad || 0}
+                                          <strong>Cantidad:</strong> {productData.cantidad || 0}
                                         </span>
                                         <span className="text-gray-600">
                                           <strong>Precio unitario:</strong> S/ {parseFloat(
-                                            detalle.precio_unitario ||
-                                            detalle.precio ||
-                                            detalle.price ||
+                                            productData.precio ||
                                             detalle.producto?.precio ||
                                             0
                                           ).toFixed(2)}
