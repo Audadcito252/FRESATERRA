@@ -28,6 +28,7 @@ import FAQPage from './pages/FAQPage';
 import ShippingPage from './pages/ShippingPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
+import ComplaintsBookPage from './pages/ComplaintsBookPage';
 import PaymentFailedPage from './pages/PaymentFailedPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import PaymentPendingPage from './pages/PaymentPendingPage';
@@ -52,9 +53,9 @@ function App() {
             <Route path="/" element={<MainLayout />}>
               <Route index element={<HomePage />} />              <Route path="products" element={<ProductsPage />} />
               <Route path="products/:id" element={<ProductDetailPage />} />              <Route path="about" element={<AboutPage />} />              <Route path="contact" element={<ContactPage />} />              <Route path="faq" element={<FAQPage />} />
-              <Route path="shipping" element={<ShippingPage />} />
-              <Route path="terms" element={<TermsPage />} />
+              <Route path="shipping" element={<ShippingPage />} />              <Route path="terms" element={<TermsPage />} />
               <Route path="privacy" element={<PrivacyPage />} />
+              <Route path="complaints-book" element={<ComplaintsBookPage />} />
               <Route path="cart" element={<CartPage />} />
               <Route path="checkout" element={
                 <ProtectedRoute>

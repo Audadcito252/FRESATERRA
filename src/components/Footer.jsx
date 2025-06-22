@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
-import { Instagram, Facebook, Twitter, MapPin, Phone, Mail } from 'lucide-react';
+import { Instagram, Facebook, Twitter, MapPin, Phone, Mail, BookOpen } from 'lucide-react';
+import ComplaintsBanner from './ComplaintsBanner';
 
 const Footer = () => {
   return (
     <footer className="bg-gray-900 text-white">
-      <div className="container mx-auto px-4 py-16">        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
+      <ComplaintsBanner />
+      <div className="container mx-auto px-4 py-16"><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
           {/* Company Info */}
           <div className="lg:col-span-1 flex flex-col items-center lg:items-start">
             <div className="mb-1">
@@ -72,10 +74,14 @@ const Footer = () => {
                 <Link to="/terms" className="text-gray-300 hover:text-white transition-colors">
                   Términos y condiciones
                 </Link>
-              </li>
-              <li>
+              </li>              <li>
                 <Link to="/privacy" className="text-gray-300 hover:text-white transition-colors">
                   Política de privacidad
+                </Link>
+              </li>              <li>
+                <Link to="/complaints-book" className="text-gray-300 hover:text-white transition-colors flex items-center">
+                  <BookOpen size={18} className="mr-2 flex-shrink-0" />
+                  Libro de reclamaciones
                 </Link>
               </li>
             </ul>
