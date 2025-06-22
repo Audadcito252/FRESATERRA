@@ -16,16 +16,17 @@ const RegisterPage = () => {
     email: '',
     phone: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    acceptTerms: ''
   });
-
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    acceptTerms: false
   });
 
   // Estados para interfaz dinámica
@@ -142,20 +143,22 @@ const RegisterPage = () => {
         if (strength <= 2) {
           return 'La contraseña es muy débil. Añade más variedad de caracteres.';
         }
-        return '';
-      case 'confirmPassword':
+        return '';      case 'confirmPassword':
         if (!value) return 'Por favor confirma tu contraseña';
         return value !== formData.password ? 'Las contraseñas no son iguales' : '';
+      case 'acceptTerms':
+        return !value ? 'Debes aceptar los términos y condiciones para continuar' : '';
       default:
         return '';
     }
   };
-
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
+    const inputValue = type === 'checkbox' ? checked : value;
+    
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: inputValue
     }));
 
     if (name === 'password') {
@@ -164,7 +167,7 @@ const RegisterPage = () => {
 
     setErrors(prev => ({
       ...prev,
-      [name]: validateField(name, value)
+      [name]: validateField(name, inputValue)
     }));
 
     if (name === 'confirmPassword' || (name === 'password' && formData.confirmPassword)) {
@@ -177,8 +180,7 @@ const RegisterPage = () => {
   };
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validar todos los campos
+      // Validar todos los campos
     const newErrors = {
       firstName: validateField('firstName', formData.firstName),
       lastName: validateField('lastName', formData.lastName),
@@ -186,6 +188,7 @@ const RegisterPage = () => {
       phone: validateField('phone', formData.phone),
       password: validateField('password', formData.password),
       confirmPassword: validateField('confirmPassword', formData.confirmPassword),
+      acceptTerms: validateField('acceptTerms', formData.acceptTerms),
     };
 
     setErrors(newErrors);
@@ -458,11 +461,55 @@ const RegisterPage = () => {
                   )}
                 </div>
               )}
-              
-              {errors.confirmPassword && (
+                {errors.confirmPassword && (
                 <p className="error-message text-[#EC0617] text-sm mt-1">{errors.confirmPassword}</p>
               )}
-            </div><button
+            </div>
+
+            {/* Términos y Condiciones */}
+            <div className="form-group mb-6">
+              <div className="flex items-start space-x-3">
+                <input
+                  id="acceptTerms"
+                  name="acceptTerms"
+                  type="checkbox"
+                  required
+                  className={`mt-1 h-4 w-4 rounded border-2 text-[#EC0617] focus:ring-[#EC0617] focus:ring-2 transition-all ${
+                    errors.acceptTerms ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  checked={formData.acceptTerms}
+                  onChange={handleChange}
+                />                <label htmlFor="acceptTerms" className="text-sm text-gray-700 leading-relaxed">
+                  He leído y acepto los{' '}
+                  <a 
+                    href="/terms" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-[#EC0617] hover:underline font-medium"
+                  >
+                    Términos y Condiciones
+                  </a>
+                  {' '}y la{' '}
+                  <a 
+                    href="/privacy" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-[#EC0617] hover:underline font-medium"
+                  >
+                    Política de Privacidad
+                  </a>
+                  {' '}de Fresaterra. <span className="text-red-500">*</span>
+                </label>
+              </div>
+              {errors.acceptTerms && (
+                <p className="error-message text-[#EC0617] text-sm mt-2 ml-7">{errors.acceptTerms}</p>
+              )}
+              <div className="mt-2 ml-7 text-xs text-gray-500">
+                <p>Al registrarte, confirmas que tienes al menos 18 años y aceptas recibir comunicaciones comerciales de Fresaterra.</p>
+              </div>
+            </div>
+
+            <button
               type="submit"
               disabled={isLoading}
               className="btn w-full py-3.5 px-4 bg-[#EC0617] text-white border-none rounded text-base font-semibold cursor-pointer transition-colors hover:bg-[#c00513] disabled:bg-[#cccccc] disabled:cursor-not-allowed"

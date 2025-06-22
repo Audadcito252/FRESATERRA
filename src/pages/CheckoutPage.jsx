@@ -38,7 +38,10 @@ const CheckoutPage = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderId, setOrderId] = useState('');  const [addressOption, setAddressOption] = useState('profile'); // 'profile', 'select' o 'new'
-  const [selectedAddressId, setSelectedAddressId] = useState(null);  const [newAddress, setNewAddress] = useState({
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [justCreatedAddress, setJustCreatedAddress] = useState(false); // Para rastrear cuando se crea una nueva dirección
+
+  const [newAddress, setNewAddress] = useState({
     calle: '',
     numero: '',
     distrito: '',
@@ -77,7 +80,10 @@ const CheckoutPage = () => {
       const success = await createAddress(addressData);
       
       if (success) {
-        toast.success('Dirección guardada exitosamente');        // Resetear el formulario de nueva dirección
+        // Mostrar un toast con los detalles de la dirección guardada
+        toast.success(`Dirección guardada: ${newAddress.calle} ${newAddress.numero}, ${newAddress.distrito}, ${newAddress.ciudad}`);
+        
+        // Resetear el formulario de nueva dirección primero
         setNewAddress({
           calle: '',
           numero: '',
@@ -85,6 +91,10 @@ const CheckoutPage = () => {
           ciudad: 'Cusco',
           referencia: '',
         });
+        
+        // Marcar que acabamos de crear una nueva dirección
+        setJustCreatedAddress(true);
+        
       } else {
         toast.error('Error al guardar la dirección. Inténtalo de nuevo.');
       }
@@ -101,7 +111,30 @@ const CheckoutPage = () => {
     if (cartItems.length === 0 && currentStep !== 3) {
       navigate('/products');
     }
-  }, [cartItems.length, navigate, currentStep]);
+  }, [cartItems.length, navigate, currentStep]);  // useEffect para detectar cuando se actualizan las direcciones después de crear una nueva
+  useEffect(() => {
+    // Si hemos cambiado a 'profile' y hay direcciones disponibles
+    if (addressOption === 'profile' && addresses && addresses.length > 0) {
+      // Si no hay ninguna dirección seleccionada, seleccionar la más reciente
+      if (!selectedAddressId) {
+        const latestAddress = addresses[0]; // La más reciente debería estar primera
+        console.log('Seleccionando dirección más reciente:', latestAddress);
+        setSelectedAddressId(latestAddress.id_direccion);
+      }
+    }
+  }, [addresses, addressOption, selectedAddressId]);
+
+  // useEffect específico para cuando se acaba de crear una nueva dirección
+  useEffect(() => {
+    if (justCreatedAddress && addresses && addresses.length > 0) {
+      // Seleccionar la dirección más reciente (la recién creada)
+      const latestAddress = addresses[0];
+      console.log('Seleccionando nueva dirección creada:', latestAddress);
+      setSelectedAddressId(latestAddress.id_direccion);
+      setAddressOption('profile');
+      setJustCreatedAddress(false); // Reset flag
+    }
+  }, [justCreatedAddress, addresses]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -113,9 +146,14 @@ const CheckoutPage = () => {
     if (currentStep === 1) {
       // Validar que se tenga una dirección válida antes de proceder
       let hasValidAddress = false;
-      
-      if (addressOption === 'profile') {
-        hasValidAddress = getDefaultAddress() !== null;
+        if (addressOption === 'profile') {
+        // Si hay una dirección seleccionada específicamente, usarla
+        if (selectedAddressId) {
+          hasValidAddress = true;
+        } else {
+          // Si no hay dirección seleccionada, verificar si hay una predeterminada
+          hasValidAddress = getDefaultAddress() !== null;
+        }
       } else if (addressOption === 'select') {
         hasValidAddress = selectedAddressId !== null;
       } else if (addressOption === 'new') {
@@ -144,7 +182,9 @@ const CheckoutPage = () => {
     
     if (currentStep === 2) {
       // Paso 1: Crear el pedido en la base de datos ANTES de procesar el pago
-      try {        // Preparar datos del checkout para el backend
+      let newOrderId = null; // Declarar en scope más amplio para que esté disponible en el catch
+      try {        
+        // Preparar datos del checkout para el backend
         const checkoutData = {
           items: cartItems.map(item => ({
             product_id: parseInt(item.product.id), // Convertir string a número para que coincida con id_producto
@@ -164,23 +204,36 @@ const CheckoutPage = () => {
           },
           address_info: {},
           notes: `Pedido realizado desde el checkout. Envío: ${hasStrawberryPackOffer ? 'GRATIS' : `S/ ${shippingCost.toFixed(2)}`}`
-        };
-
-        // Determinar la información de dirección según la opción seleccionada
+        };        // Determinar la información de dirección según la opción seleccionada
         if (addressOption === 'profile') {
-          const defaultAddr = getDefaultAddress();
-          if (defaultAddr) {
+          // Si hay una dirección específica seleccionada, usarla
+          if (selectedAddressId) {
+            const selectedAddress = addresses.find(addr => addr.id_direccion === selectedAddressId);
+            console.log('Usando dirección seleccionada:', selectedAddress);
             checkoutData.address_info = {
-              type: 'profile',
-              address_id: parseInt(defaultAddr.id_direccion)
+              type: 'select',
+              address_id: parseInt(selectedAddressId)
             };
+          } else {
+            // Si no hay dirección seleccionada, usar la predeterminada
+            const defaultAddr = getDefaultAddress();
+            if (defaultAddr) {
+              console.log('Usando dirección predeterminada:', defaultAddr);
+              checkoutData.address_info = {
+                type: 'profile',
+                address_id: parseInt(defaultAddr.id_direccion)
+              };
+            }
           }
         } else if (addressOption === 'select' && selectedAddressId) {
+          const selectedAddress = addresses.find(addr => addr.id_direccion === selectedAddressId);
+          console.log('Usando dirección seleccionada desde select:', selectedAddress);
           checkoutData.address_info = {
             type: 'select',
             address_id: parseInt(selectedAddressId)
           };
         } else if (addressOption === 'new') {
+          console.log('Usando nueva dirección:', newAddress);
           checkoutData.address_info = {
             type: 'new',
             new_address: {
@@ -192,16 +245,18 @@ const CheckoutPage = () => {
             }
           };
         }        console.log('Creando pedido con datos:', checkoutData);
-        
-        // Crear el pedido en la base de datos
+          // Crear el pedido en la base de datos
         const orderResponse = await ordersService.createOrder(checkoutData);
         console.log('Respuesta del servidor:', orderResponse);
-        
-        if (orderResponse && orderResponse.order_id) {
-          const newOrderId = orderResponse.order_id;
+          if (orderResponse && orderResponse.order_id) {
+          newOrderId = orderResponse.order_id;
           setOrderId(newOrderId);
           
           toast.success('Pedido creado exitosamente. Redirigiendo a Mercado Pago...');
+          
+          // Limpiar el carrito inmediatamente después de crear el pedido exitosamente
+          clearCart();
+          console.log('Carrito vaciado después de crear el pedido');
           
           // Paso 2: Crear preferencia de Mercado Pago
           const itemsForMercadoPago = cartItems.map(item => ({
@@ -230,16 +285,40 @@ const CheckoutPage = () => {
             }
           };
 
-          const response = await api.post('/create-preference', mercadoPagoData);
-          
+          const response = await api.post('/create-preference', mercadoPagoData);          
           setIsSubmitting(false); // Detener el indicador de carga después de la respuesta
 
           if (response.init_point) {
+            // Marcar que estamos redirigiendo a Mercado Pago y guardar el ID del pedido
+            sessionStorage.setItem('redirectedToMercadoPago', 'true');
+            sessionStorage.setItem('pendingOrderId', newOrderId);
+            
+            // Redirigir a Mercado Pago
             window.location.href = response.init_point;
           } else if (response.sandbox_init_point) { // Para entorno de pruebas
-            window.location.href = response.sandbox_init_point;
-          } else {
+            // Para entorno de pruebas
+            sessionStorage.setItem('redirectedToMercadoPago', 'true');
+            sessionStorage.setItem('pendingOrderId', newOrderId);
+            
+            window.location.href = response.sandbox_init_point;          } else {
             console.error('No init_point received from Mercado Pago');
+            
+            // Marcar el pedido como abandonado ya que no se puede redirigir a Mercado Pago
+            try {
+              await paymentsService.markOrderAsAbandoned(newOrderId);
+              console.log('Pedido marcado como abandonado debido a falta de init_point');
+            } catch (abandonError) {
+              console.log('Error al marcar como abandonado con auth, intentando endpoint público:', abandonError);
+                try {
+                await api.post(`/orders/${newOrderId}/mark-abandoned`, {
+                  reason: 'no_init_point_received'
+                });
+                console.log('Pedido marcado como abandonado exitosamente (endpoint público)');
+              } catch (publicAbandonError) {
+                console.error('Error al marcar pedido como abandonado (público):', publicAbandonError);
+              }
+            }
+            
             toast.error('Error: No se recibió el punto de inicio para el pago de Mercado Pago.');
           }
         } else {
@@ -247,6 +326,27 @@ const CheckoutPage = () => {
         }} catch (error) {
         setIsSubmitting(false);
         console.error('Error en el proceso de checkout:', error);
+          // Si se creó un pedido pero falló la comunicación con Mercado Pago, marcarlo como abandonado
+        if (newOrderId) {
+          console.log('Marcando pedido como abandonado debido a error de comunicación con Mercado Pago. Order ID:', newOrderId);
+          
+          try {
+            // Intentar marcar el pedido como abandonado usando el endpoint con autenticación
+            await paymentsService.markOrderAsAbandoned(newOrderId);
+            console.log('Pedido marcado como abandonado exitosamente (con auth)');
+          } catch (abandonError) {
+            console.log('Error al marcar como abandonado con auth, intentando endpoint público:', abandonError);
+            
+            try {              // Fallback al endpoint público si falla la autenticación
+              await api.post(`/orders/${newOrderId}/mark-abandoned`, {
+                reason: 'mercado_pago_communication_error'
+              });
+              console.log('Pedido marcado como abandonado exitosamente (endpoint público)');
+            } catch (publicAbandonError) {
+              console.error('Error al marcar pedido como abandonado (público):', publicAbandonError);
+            }
+          }
+        }
         
         // Acceder a los datos del error de manera más robusta
         let errorData = null;
@@ -285,9 +385,8 @@ const CheckoutPage = () => {
               // Asegurar que el mensaje es una cadena antes de mostrarlo
               const errorMsg = typeof msg === 'string' ? msg : JSON.stringify(msg);
               toast.error(errorMsg);
-            });
-          } else {
-            toast.error(errorData.message || errorData.error || 'Error en el checkout');
+            });          } else {
+            toast.error(errorData.message || errorData.error || 'Error al comunicar con Mercado Pago');
           }
         } else if (error.message) {
           toast.error(error.message);
@@ -460,9 +559,7 @@ const CheckoutPage = () => {
                           : addressesError
                         }
                       </div>
-                    )}
-
-                    {addressOption === 'profile' ? (
+                    )}                    {addressOption === 'profile' ? (
                       <div className="bg-gray-50 p-3 rounded-lg border text-gray-700">
                         {addressesLoading ? (
                           <div className="flex items-center space-x-2 text-gray-400">
@@ -503,7 +600,7 @@ const CheckoutPage = () => {
                             <p className="text-sm mt-1">Selecciona "Ingresar nueva dirección" para continuar.</p>
                           </div>
                         )}
-                      </div>                    ) : addressOption === 'select' ? (
+                      </div>) : addressOption === 'select' ? (
                       <div className="space-y-3">
                         <p className="text-sm text-gray-600 mb-3">Selecciona una de tus direcciones guardadas:</p>
                         {addresses.filter(address => !address.predeterminada || address.predeterminada === 'no').map(address => (
@@ -614,20 +711,20 @@ const CheckoutPage = () => {
                       <button
                         type="button"
                         onClick={handleSaveNewAddress}
-                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 mr-3"
+                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
                         disabled={creatingAddress}
                       >
                         {creatingAddress ? "Guardando..." : "Guardar dirección"}
                       </button>
-                    ) : null}
-                    
-                    <button
-                      type="submit"
-                      className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? "Validando..." : "Continuar al pago"}
-                    </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? "Validando..." : "Continuar al pago"}
+                      </button>
+                    )}
                   </div>
                 </form>
               </div>

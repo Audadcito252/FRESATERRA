@@ -75,15 +75,19 @@ const ordersService = {
       throw error;
     }
   },
-
   /**
    * Obtener detalles de un pedido específico
    */
   getOrderDetails: async (orderId) => {
     try {
-      return await api.get(`/orders/${orderId}`);
+      console.log('ordersService.getOrderDetails called with orderId:', orderId);
+      const response = await api.get(`/orders/${orderId}`);
+      console.log('getOrderDetails response:', response);
+      return response;
     } catch (error) {
       console.error('Error obteniendo detalles del pedido:', error);
+      console.error('Error status:', error.response?.status);
+      console.error('Error data:', error.response?.data);
       throw error;
     }
   },
@@ -108,6 +112,47 @@ const ordersService = {
       return await api.patch(`/orders/${orderId}/cancel`, { reason });
     } catch (error) {
       console.error('Error cancelando pedido:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Actualizar el estado de un pedido específico
+   */
+  updateOrderStatus: async (orderId, status) => {
+    try {
+      return await api.patch(`/orders/${orderId}/status`, { estado: status });
+    } catch (error) {
+      console.error('Error actualizando estado del pedido:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Obtener sólo el estado de un pedido
+   */
+  getOrderStatus: async (orderId) => {
+    try {
+      const response = await api.get(`/orders/${orderId}/status`);
+      return response.status || null;
+    } catch (error) {
+      console.error('Error obteniendo estado del pedido:', error);
+      throw error;
+    }
+  },
+  /**
+   * Reanudar un pedido abandonado
+   */
+  resumeOrder: async (orderId) => {
+    try {
+      console.log('ordersService.resumeOrder called with orderId:', orderId);
+      const response = await api.post(`/orders/${orderId}/resume`);
+      console.log('resumeOrder response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error reanudando pedido:', error);
+      console.error('Error status:', error.response?.status);
+      console.error('Error data:', error.response?.data);
       throw error;
     }
   }
