@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Filter, ChevronDown, Search, X } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 import { productsService } from '../services/productsService';
+import searchService from '../services/searchService';
 
 const ProductsPage = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
   
   // Parse URL parameters
@@ -13,7 +15,7 @@ const ProductsPage = () => {
   const initialSearchQuery = searchParams.get('search') || '';
   
   // State for products and filters
-  const [allProducts, setAllProducts] = useState([]); // Todos los productos del backend
+  const [allProducts, setAllProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
@@ -22,18 +24,21 @@ const ProductsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState(null);
-    // Filtros dinámicos (aplicados en frontend)
+  
+  // Filtros dinámicos (aplicados en frontend para mayor flexibilidad)
   const [priceRange, setPriceRange] = useState([0, 100]);
   const [minRating, setMinRating] = useState(0);
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(true);
-    // Estado interno para el input de búsqueda (debounced)
+  
+  // Estado interno para el input de búsqueda (debounced)
   const [searchInput, setSearchInput] = useState(initialSearchQuery);
   
   // Estado interno para el rango de precio (debounced)
   const [priceInputRange, setPriceInputRange] = useState([0, 100]);
   
-  // Paginación (aplicada en frontend)
+  // Paginación
   const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const itemsPerPage = 12;
   
   // Debounce para la búsqueda

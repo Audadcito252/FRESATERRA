@@ -417,8 +417,8 @@ const CheckoutPage = () => {
   const hasCartTotalOffer = cartTotal >= FREE_SHIPPING_THRESHOLD;
   const hasStrawberryPackOffer = strawberryPacksSubtotal >= 30 || hasCartTotalOffer;
 
-  // Costo de envío: gratis si aplica la oferta, sino S/ 5.99
-  const shippingCost = hasStrawberryPackOffer ? 0 : 5.99;
+  // Costo de envío: gratis si aplica la oferta, sino S/ 5.00
+  const shippingCost = hasStrawberryPackOffer ? 0 : 5.00;
   
   // Total final: subtotal de todos los productos + envío (sin impuestos según requerimientos)
   const orderTotal = cartTotal + shippingCost;  return (
