@@ -140,8 +140,26 @@ const Navbar = () => {
             {isAuthenticated ? (
               <div className="relative group">
                 <button className="flex items-center text-gray-800 hover:text-red-600 transition-colors">
-                  <User size={20} />
-                  <span className="ml-2">{user?.nombre || user?.name}</span>
+                  {/* Avatar dinámico - Google avatar o icono por defecto */}
+                  <div className="w-6 h-6 rounded-full overflow-hidden bg-red-100 flex items-center justify-center mr-2">
+                    {user?.avatar ? (
+                      <img 
+                        src={user.avatar} 
+                        alt={`${user?.nombre || user?.name}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // Si falla la carga de la imagen, mostrar icono por defecto
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'block';
+                        }}
+                      />
+                    ) : null}
+                    <User 
+                      size={16} 
+                      className={`text-red-600 ${user?.avatar ? 'hidden' : ''}`} 
+                    />
+                  </div>
+                  <span>{user?.nombre || user?.name}</span>
                 </button>
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300">
                   <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-red-50">
@@ -251,7 +269,24 @@ const Navbar = () => {
                 {isAuthenticated ? (
                   <>
                     <Link to="/profile" className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-50">
-                      <User size={18} className="mr-3" />
+                      {/* Avatar dinámico en móvil también */}
+                      <div className="w-5 h-5 rounded-full overflow-hidden bg-red-100 flex items-center justify-center mr-3">
+                        {user?.avatar ? (
+                          <img 
+                            src={user.avatar} 
+                            alt={`${user?.nombre || user?.name}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'block';
+                            }}
+                          />
+                        ) : null}
+                        <User 
+                          size={14} 
+                          className={`text-red-600 ${user?.avatar ? 'hidden' : ''}`} 
+                        />
+                      </div>
                       Perfil
                     </Link>
                     <Link to="/orders" className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-50">

@@ -2,7 +2,8 @@
 
 import axios from 'axios';
 
-const baseURL = 'http://127.0.0.1:8000/api/v1';
+// Usar variable de entorno o fallback a localhost
+const baseURL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1';
 
 // Crear instancia de Axios
 const api = axios.create({

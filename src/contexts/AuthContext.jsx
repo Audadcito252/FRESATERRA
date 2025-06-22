@@ -171,7 +171,7 @@ function AuthProvider({ children }) {
     setIsLoading(true);
     try {
       // Redirigir al backend para iniciar el flujo de OAuth con Google
-      window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/google/redirect`;
+      window.location.href = `${import.meta.env.VITE_API_URL || 'http://api.fresaterra.shop:8000/api/v1'}/auth/google/redirect`;
     } catch (error) {
       console.error('Google login error:', error);
       throw new Error('Error al iniciar sesión con Google. Por favor intenta de nuevo.');
@@ -184,7 +184,7 @@ function AuthProvider({ children }) {
     setIsLoading(true);
     try {
       // Redirigir al backend para iniciar el flujo de OAuth con Facebook
-      window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/facebook/redirect`;
+      window.location.href = `${import.meta.env.VITE_API_URL || 'http://api.fresaterra.shop:8000/api/v1'}/auth/facebook/redirect`;
     } catch (error) {
       console.error('Facebook login error:', error);
       throw new Error('Error al iniciar sesión con Facebook. Por favor intenta de nuevo.');

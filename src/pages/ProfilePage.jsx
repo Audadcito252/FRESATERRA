@@ -75,7 +75,7 @@ const ProfilePage = () => {
         nombre: user.nombre || '',
         apellidos: user.apellidos || '',
         email: user.email || '',
-        telefono: user.telefono || ''
+        telefono: (user.telefono && user.telefono !== '000000000' && user.telefono !== '0000000000') ? user.telefono : ''
       });
     } else {
       // Reset form if user logs out or is not available
@@ -352,11 +352,34 @@ const ProfilePage = () => {
           <div className="md:w-1/4">
             <div className="bg-white rounded-lg shadow-sm p-4">
               <div className="flex items-center space-x-4 p-4 border-b">
-                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-                  <User size={24} className="text-red-600" />
-                </div>                <div>
+                {/* Avatar dinámico - Google avatar o icono por defecto */}
+                <div className="w-12 h-12 rounded-full overflow-hidden bg-red-100 flex items-center justify-center">
+                  {user?.avatar ? (
+                    <img 
+                      src={user.avatar} 
+                      alt={`${userData.nombre} ${userData.apellidos}`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Si falla la carga de la imagen, mostrar icono por defecto
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'block';
+                      }}
+                    />
+                  ) : null}
+                  <User 
+                    size={24} 
+                    className={`text-red-600 ${user?.avatar ? 'hidden' : ''}`} 
+                  />
+                </div>
+                <div>
                   <h2 className="font-semibold text-lg text-gray-800">{userData.nombre} {userData.apellidos}</h2>
                   <p className="text-sm text-gray-500">{userData.email}</p>
+                  {/* Mostrar el proveedor si es usuario social */}
+                  {user?.provider && user.provider !== 'email' && (
+                    <p className="text-xs text-green-600 capitalize">
+                      Conectado via {user.provider}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -479,16 +502,27 @@ const ProfilePage = () => {
                           />
                         </div>
                         <div>
-                          <label htmlFor="telefono" className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                          <label htmlFor="telefono" className="block text-sm font-medium text-gray-700 mb-1">
+                            Teléfono
+                            {user?.provider && user.provider !== 'email' && (
+                              <span className="text-xs text-gray-500 ml-1">(opcional)</span>
+                            )}
+                          </label>
                           <input
                             type="tel"
                             id="telefono"
                             name="telefono"
-                            value={userData.telefono}
+                            value={userData.telefono === '000000000' || userData.telefono === '0000000000' ? '' : userData.telefono}
                             onChange={handleInputChange}
                             className="w-full rounded-md border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                            required
+                            placeholder="Ingresa tu número de teléfono"
+                            required={!user?.provider || user.provider === 'email'}
                           />
+                          {user?.provider && user.provider !== 'email' && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Como iniciaste sesión con {user.provider}, el teléfono es opcional
+                            </p>
+                          )}
                         </div>
                       </div>
                         <div className="flex justify-end space-x-3 pt-4">
@@ -534,7 +568,20 @@ const ProfilePage = () => {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-500">Teléfono</label>
-                          <p className="text-gray-900">{userData.telefono}</p>
+                          <p className="text-gray-900">
+                            {userData.telefono && userData.telefono !== '000000000' && userData.telefono !== '0000000000' 
+                              ? userData.telefono 
+                              : (
+                                <span className="text-gray-400 italic">
+                                  No especificado
+                                  {user?.provider && user.provider !== 'email' && (
+                                    <span className="block text-xs text-gray-500 mt-1">
+                                      Puedes agregar tu teléfono editando tu perfil
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                          </p>
                         </div>                        <div>
                           <label className="block text-sm font-medium text-gray-500">Dirección predeterminada</label>
                           {addressesLoading ? (
