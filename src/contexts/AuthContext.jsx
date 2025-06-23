@@ -283,7 +283,7 @@ function AuthProvider({ children }) {
     }
   };
 
-  const logout = async () => {
+  const logout = async (navigate = null) => {
     try {
       const token = localStorage.getItem('token');
       if (token) {
@@ -296,6 +296,11 @@ function AuthProvider({ children }) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       setUser(null);
+      
+      // Redirigir al login o página principal si se proporciona navigate
+      if (navigate) {
+        navigate('/login');
+      }
     }
   };
 

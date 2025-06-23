@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, MapPin, Settings, Edit, Plus, Star } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import useAddresses from '../hooks/useAddresses';
@@ -7,6 +8,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { toast as hotToast } from 'react-hot-toast';
 
 const ProfilePage = () => {
+  const navigate = useNavigate();
   const { user, updateProfile, changePassword, deactivateAccount, logout } = useAuth();
   
   // Hook para manejo de direcciones
@@ -22,6 +24,7 @@ const ProfilePage = () => {
     updateAddress,
     setAddressAsDefault,
     clearError: clearAddressError,
+    clearAllData: clearAddressesData,
     hasAddresses,
     getDefaultAddress  } = useAddresses();
   
@@ -98,6 +101,13 @@ const ProfilePage = () => {
       clearAddressError();
     }
   }, [activeTab, clearAddressError]);
+
+  // Redirigir al login si no hay usuario autenticado
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -341,6 +351,61 @@ const ProfilePage = () => {
     }
   };
 
+  // Función para manejar logout con limpieza de estados
+  const handleLogout = async () => {
+    try {
+      // Limpiar estados locales antes del logout
+      setUserData({
+        nombre: '',
+        apellidos: '',
+        email: '',
+        telefono: ''
+      });
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      setNewAddress({
+        calle: '',
+        numero: '',
+        distrito: '',
+        ciudad: 'Cusco',
+        referencia: '',
+        predeterminada: false
+      });
+      setEditAddressData({
+        calle: '',
+        numero: '',
+        distrito: '',
+        ciudad: 'Cusco',
+        referencia: '',
+        predeterminada: false
+      });
+      setUpdateMessage('');
+      setUpdateError('');
+      setIsEditing(false);
+      setShowChangePassword(false);
+      setShowDeactivateAccount(false);
+      setShowAddAddress(false);
+      setEditingAddress(null);
+      
+      // Limpiar datos de direcciones
+      clearAddressesData();
+      
+      // Ejecutar logout del contexto con navegación
+      await logout(navigate);
+      
+      // Mostrar mensaje de despedida
+      hotToast.success('¡Hasta luego! Has cerrado sesión exitosamente', {
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error('Error durante el logout:', error);
+      hotToast.error('Error al cerrar sesión');
+    }
+  };
+
   return (
     <div className="pt-32 md:pt-40 pb-16 bg-gradient-to-br from-gray-100 via-white to-gray-200">
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
@@ -421,7 +486,7 @@ const ProfilePage = () => {
 
               <div className="mt-6 pt-6 border-t">
                 <button
-                  onClick={logout}
+                  onClick={handleLogout}
                   className="w-full py-2 text-center text-red-600 hover:text-red-800 transition-colors"
                 >
                   Cerrar sesión

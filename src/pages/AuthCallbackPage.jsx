@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
@@ -8,9 +8,18 @@ const AuthCallbackPage = () => {
   const navigate = useNavigate();
   const { handleSocialAuthCallback } = useAuth();
   const [isProcessing, setIsProcessing] = useState(true);
+  const hasProcessedRef = useRef(false);
+  const callbackRef = useRef(handleSocialAuthCallback);
+  
+  // Actualizar la referencia cuando cambie la función
+  callbackRef.current = handleSocialAuthCallback;
 
   useEffect(() => {
     const processCallback = async () => {
+      // Evitar procesamiento múltiple usando useRef
+      if (hasProcessedRef.current) return;
+      hasProcessedRef.current = true;
+      
       try {
         const token = searchParams.get('token');
         const error = searchParams.get('error');
@@ -61,9 +70,14 @@ const AuthCallbackPage = () => {
         }
 
         // Procesar el token y obtener datos del usuario
-        await handleSocialAuthCallback(token);
+        const user = await callbackRef.current(token);
         
-        toast.success('¡Inicio de sesión exitoso!');
+        if (user) {
+          toast.success('¡Inicio de sesión exitoso!', {
+            duration: 3000,
+          });
+        }
+        
         navigate('/');
       } catch (error) {
         console.error('Error processing social auth callback:', error);
@@ -91,7 +105,7 @@ const AuthCallbackPage = () => {
     };
 
     processCallback();
-  }, [searchParams, navigate, handleSocialAuthCallback]);
+  }, [searchParams, navigate]); // Removemos handleSocialAuthCallback de las dependencias
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f9f9f9]">

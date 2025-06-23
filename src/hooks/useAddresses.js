@@ -222,6 +222,21 @@ const useAddresses = () => {
   const refreshAddresses = useCallback(() => {
     fetchAddresses();
   }, [fetchAddresses]);
+
+  /**
+   * Limpiar todos los estados (útil para logout)
+   */
+  const clearAllData = useCallback(() => {
+    setAddresses([]);
+    setLoading(false);
+    setError(null);
+    setCreating(false);
+    setUpdating(false);
+    setSettingDefault(false);
+    setDefaultAddress(null);
+    setTotal(0);
+  }, []);
+
   // Cargar direcciones al montar el componente
   useEffect(() => {
     fetchAddresses();
@@ -253,6 +268,8 @@ const useAddresses = () => {
     refreshAddresses,
     fetchDefaultAddress,
     clearError,
+    clearAllData,
+    clearAllData,
     
     // Helpers
     getDefaultAddress,
