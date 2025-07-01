@@ -5,9 +5,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, CreditCard, Truck, CheckCircle2 } from 'lucide-react';
 import api from '../services/api';
 import addressesService from '../services/addressesService';
+import ordersService from '../services/ordersService';
+import paymentsService from '../services/paymentsService';
 import useAddresses from '../hooks/useAddresses';
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import toast from 'react-hot-toast';
 
 const CheckoutPage = () => {
   const { cartItems, cartTotal, clearCart } = useShoppingCart();
@@ -36,13 +37,15 @@ const CheckoutPage = () => {
   });
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [orderId, setOrderId] = useState('');
-  const [addressOption, setAddressOption] = useState('profile'); // 'profile' o 'new'
+  const [orderId, setOrderId] = useState('');  const [addressOption, setAddressOption] = useState('profile'); // 'profile', 'select' o 'new'
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [justCreatedAddress, setJustCreatedAddress] = useState(false); // Para rastrear cuando se crea una nueva dirección
+
   const [newAddress, setNewAddress] = useState({
     calle: '',
     numero: '',
     distrito: '',
-    ciudad: 'Cusco',
+    ciudad: 'Cusco', // Default city
     referencia: '',
   });
   // Cargar datos del usuario cuando el componente se monta
@@ -77,8 +80,10 @@ const CheckoutPage = () => {
       const success = await createAddress(addressData);
       
       if (success) {
-        toast.success('Dirección guardada exitosamente');
-        // Resetear el formulario de nueva dirección
+        // Mostrar un toast con los detalles de la dirección guardada
+        toast.success(`Dirección guardada: ${newAddress.calle} ${newAddress.numero}, ${newAddress.distrito}, ${newAddress.ciudad}`);
+        
+        // Resetear el formulario de nueva dirección primero
         setNewAddress({
           calle: '',
           numero: '',
@@ -86,6 +91,10 @@ const CheckoutPage = () => {
           ciudad: 'Cusco',
           referencia: '',
         });
+        
+        // Marcar que acabamos de crear una nueva dirección
+        setJustCreatedAddress(true);
+        
       } else {
         toast.error('Error al guardar la dirección. Inténtalo de nuevo.');
       }
@@ -102,7 +111,30 @@ const CheckoutPage = () => {
     if (cartItems.length === 0 && currentStep !== 3) {
       navigate('/products');
     }
-  }, [cartItems.length, navigate, currentStep]);
+  }, [cartItems.length, navigate, currentStep]);  // useEffect para detectar cuando se actualizan las direcciones después de crear una nueva
+  useEffect(() => {
+    // Si hemos cambiado a 'profile' y hay direcciones disponibles
+    if (addressOption === 'profile' && addresses && addresses.length > 0) {
+      // Si no hay ninguna dirección seleccionada, seleccionar la más reciente
+      if (!selectedAddressId) {
+        const latestAddress = addresses[0]; // La más reciente debería estar primera
+        console.log('Seleccionando dirección más reciente:', latestAddress);
+        setSelectedAddressId(latestAddress.id_direccion);
+      }
+    }
+  }, [addresses, addressOption, selectedAddressId]);
+
+  // useEffect específico para cuando se acaba de crear una nueva dirección
+  useEffect(() => {
+    if (justCreatedAddress && addresses && addresses.length > 0) {
+      // Seleccionar la dirección más reciente (la recién creada)
+      const latestAddress = addresses[0];
+      console.log('Seleccionando nueva dirección creada:', latestAddress);
+      setSelectedAddressId(latestAddress.id_direccion);
+      setAddressOption('profile');
+      setJustCreatedAddress(false); // Reset flag
+    }
+  }, [justCreatedAddress, addresses]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -114,19 +146,28 @@ const CheckoutPage = () => {
     if (currentStep === 1) {
       // Validar que se tenga una dirección válida antes de proceder
       let hasValidAddress = false;
-      
-      if (addressOption === 'profile') {
-        hasValidAddress = getDefaultAddress() !== null;
+        if (addressOption === 'profile') {
+        // Si hay una dirección seleccionada específicamente, usarla
+        if (selectedAddressId) {
+          hasValidAddress = true;
+        } else {
+          // Si no hay dirección seleccionada, verificar si hay una predeterminada
+          hasValidAddress = getDefaultAddress() !== null;
+        }
+      } else if (addressOption === 'select') {
+        hasValidAddress = selectedAddressId !== null;
       } else if (addressOption === 'new') {
         // Verificar que todos los campos estén llenos
         hasValidAddress = newAddress.calle && newAddress.numero && 
-                         newAddress.distrito && newAddress.referencia;
+                         newAddress.distrito && newAddress.ciudad && newAddress.referencia;
       }
       
       if (!hasValidAddress) {
         setIsSubmitting(false);
         if (addressOption === 'new') {
           toast.error('Por favor, completa todos los campos de la dirección.');
+        } else if (addressOption === 'select') {
+          toast.error('Por favor, selecciona una dirección para continuar.');
         } else {
           toast.error('Por favor, selecciona una dirección válida para continuar.');
         }
@@ -140,83 +181,248 @@ const CheckoutPage = () => {
     }
     
     if (currentStep === 2) {
-      // Lógica para Mercado Pago
-      const itemsForMercadoPago = cartItems.map(item => ({
-        title: item.product.name,
-        quantity: item.quantity,
-        unit_price: Math.round(parseFloat(item.product.salePrice || item.product.price)),
-        description: item.product.description || undefined,
-      }));
+      // Paso 1: Crear el pedido en la base de datos ANTES de procesar el pago
+      let newOrderId = null; // Declarar en scope más amplio para que esté disponible en el catch
+      try {        
+        // Preparar datos del checkout para el backend
+        const checkoutData = {
+          items: cartItems.map(item => ({
+            product_id: parseInt(item.product.id), // Convertir string a número para que coincida con id_producto
+            quantity: item.quantity,
+            price: parseFloat(item.product.salePrice || item.product.price)
+          })),
+          monto_total: parseFloat(orderTotal.toFixed(2)), // Total incluyendo envío
+          subtotal: parseFloat(cartTotal.toFixed(2)), // Subtotal sin envío
+          shipping_cost: parseFloat(shippingCost.toFixed(2)), // Costo de envío calculado
+          has_free_shipping: hasStrawberryPackOffer, // Indicador de envío gratis
+          strawberry_packs_subtotal: parseFloat(strawberryPacksSubtotal.toFixed(2)), // Subtotal de paquetes de fresas
+          shipping_info: {
+            firstName: formData.firstName || '',
+            lastName: formData.lastName || '',
+            email: formData.email || '',
+            phone: formData.phone || ''
+          },
+          address_info: {},
+          notes: `Pedido realizado desde el checkout. Envío: ${hasStrawberryPackOffer ? 'GRATIS' : `S/ ${shippingCost.toFixed(2)}`}`
+        };        // Determinar la información de dirección según la opción seleccionada
+        if (addressOption === 'profile') {
+          // Si hay una dirección específica seleccionada, usarla
+          if (selectedAddressId) {
+            const selectedAddress = addresses.find(addr => addr.id_direccion === selectedAddressId);
+            console.log('Usando dirección seleccionada:', selectedAddress);
+            checkoutData.address_info = {
+              type: 'select',
+              address_id: parseInt(selectedAddressId)
+            };
+          } else {
+            // Si no hay dirección seleccionada, usar la predeterminada
+            const defaultAddr = getDefaultAddress();
+            if (defaultAddr) {
+              console.log('Usando dirección predeterminada:', defaultAddr);
+              checkoutData.address_info = {
+                type: 'profile',
+                address_id: parseInt(defaultAddr.id_direccion)
+              };
+            }
+          }
+        } else if (addressOption === 'select' && selectedAddressId) {
+          const selectedAddress = addresses.find(addr => addr.id_direccion === selectedAddressId);
+          console.log('Usando dirección seleccionada desde select:', selectedAddress);
+          checkoutData.address_info = {
+            type: 'select',
+            address_id: parseInt(selectedAddressId)
+          };
+        } else if (addressOption === 'new') {
+          console.log('Usando nueva dirección:', newAddress);
+          checkoutData.address_info = {
+            type: 'new',
+            new_address: {
+              calle: newAddress.calle || '',
+              numero: newAddress.numero || '',
+              distrito: newAddress.distrito || '',
+              ciudad: newAddress.ciudad || 'Cusco', // Default city
+              referencia: newAddress.referencia || ''
+            }
+          };
+        }        console.log('Creando pedido con datos:', checkoutData);
+          // Crear el pedido en la base de datos
+        const orderResponse = await ordersService.createOrder(checkoutData);
+        console.log('Respuesta del servidor:', orderResponse);
+          if (orderResponse && orderResponse.order_id) {
+          newOrderId = orderResponse.order_id;
+          setOrderId(newOrderId);
+          
+          toast.success('Pedido creado exitosamente. Redirigiendo a Mercado Pago...');
+          
+          // Limpiar el carrito inmediatamente después de crear el pedido exitosamente
+          clearCart();
+          console.log('Carrito vaciado después de crear el pedido');
+          
+          // Paso 2: Crear preferencia de Mercado Pago
+          const itemsForMercadoPago = cartItems.map(item => ({
+            title: item.product.name,
+            quantity: item.quantity,
+            unit_price: Math.round(parseFloat(item.product.salePrice || item.product.price)),
+            description: item.product.description || undefined,
+          }));
 
-      // Agregar el costo de envío como un item adicional si no es gratis
-      if (shippingCost > 0) {
-        itemsForMercadoPago.push({
-          title: "Costo de envío",
-          quantity: 1,
-          unit_price: Math.round(shippingCost),
-          description: "Envío a domicilio"
-        });
-      }
+          // Agregar el costo de envío como un item adicional si no es gratis
+          if (shippingCost > 0) {
+            itemsForMercadoPago.push({
+              title: "Costo de envío",
+              quantity: 1,
+              unit_price: Math.round(shippingCost),
+              description: "Envío a domicilio"
+            });
+          }          // Crear preferencia de Mercado Pago con referencia al pedido
+          const mercadoPagoData = {
+            items: itemsForMercadoPago,
+            external_reference: newOrderId.toString(),
+            back_urls: {
+              success: `${window.location.origin}/register/pago-exitoso?order_id=${newOrderId}`,
+              failure: `${window.location.origin}/register/pago-fallido?order_id=${newOrderId}`,
+              pending: `${window.location.origin}/register/pago-pendiente?order_id=${newOrderId}`
+            }
+          };
 
-      try {
-        // Usar el servicio API configurado
-        const response = await api.post('/create-preference', { items: itemsForMercadoPago });
+          const response = await api.post('/create-preference', mercadoPagoData);          
+          setIsSubmitting(false); // Detener el indicador de carga después de la respuesta
 
-        setIsSubmitting(false); // Detener el indicador de carga después de la respuesta
-
-        if (response.init_point) {
-          window.location.href = response.init_point;
-        } else if (response.sandbox_init_point) { // Para entorno de pruebas
-          window.location.href = response.sandbox_init_point;
+          if (response.init_point) {
+            // Marcar que estamos redirigiendo a Mercado Pago y guardar el ID del pedido
+            sessionStorage.setItem('redirectedToMercadoPago', 'true');
+            sessionStorage.setItem('pendingOrderId', newOrderId);
+            
+            // Redirigir a Mercado Pago
+            window.location.href = response.init_point;
+          } else if (response.sandbox_init_point) { // Para entorno de pruebas
+            // Para entorno de pruebas
+            sessionStorage.setItem('redirectedToMercadoPago', 'true');
+            sessionStorage.setItem('pendingOrderId', newOrderId);
+            
+            window.location.href = response.sandbox_init_point;          } else {
+            console.error('No init_point received from Mercado Pago');
+            
+            // Marcar el pedido como abandonado ya que no se puede redirigir a Mercado Pago
+            try {
+              await paymentsService.markOrderAsAbandoned(newOrderId);
+              console.log('Pedido marcado como abandonado debido a falta de init_point');
+            } catch (abandonError) {
+              console.log('Error al marcar como abandonado con auth, intentando endpoint público:', abandonError);
+                try {
+                await api.post(`/orders/${newOrderId}/mark-abandoned`, {
+                  reason: 'no_init_point_received'
+                });
+                console.log('Pedido marcado como abandonado exitosamente (endpoint público)');
+              } catch (publicAbandonError) {
+                console.error('Error al marcar pedido como abandonado (público):', publicAbandonError);
+              }
+            }
+            
+            toast.error('Error: No se recibió el punto de inicio para el pago de Mercado Pago.');
+          }
         } else {
-          console.error('No init_point received from Mercado Pago');
-          alert('Error: No se recibió el punto de inicio para el pago de Mercado Pago.');
-        }
-        // No se limpia el carrito ni se avanza al paso 3 aquí.
-        // Eso ocurrirá después de la redirección de Mercado Pago.
-      } catch (error) {
+          throw new Error('Error al crear el pedido: No se recibió order_id');
+        }} catch (error) {
         setIsSubmitting(false);
-        console.error('Error creating Mercado Pago preference:', error);
+        console.error('Error en el proceso de checkout:', error);
+          // Si se creó un pedido pero falló la comunicación con Mercado Pago, marcarlo como abandonado
+        if (newOrderId) {
+          console.log('Marcando pedido como abandonado debido a error de comunicación con Mercado Pago. Order ID:', newOrderId);
+          
+          try {
+            // Intentar marcar el pedido como abandonado usando el endpoint con autenticación
+            await paymentsService.markOrderAsAbandoned(newOrderId);
+            console.log('Pedido marcado como abandonado exitosamente (con auth)');
+          } catch (abandonError) {
+            console.log('Error al marcar como abandonado con auth, intentando endpoint público:', abandonError);
+            
+            try {              // Fallback al endpoint público si falla la autenticación
+              await api.post(`/orders/${newOrderId}/mark-abandoned`, {
+                reason: 'mercado_pago_communication_error'
+              });
+              console.log('Pedido marcado como abandonado exitosamente (endpoint público)');
+            } catch (publicAbandonError) {
+              console.error('Error al marcar pedido como abandonado (público):', publicAbandonError);
+            }
+          }
+        }
         
-        // Manejar el error con más detalle
-        if (error.data) {
-          console.error('Error details:', error.data);
-          alert(`Error del servidor: ${error.data.error || error.message || 'No se pudo iniciar el pago con Mercado Pago.'}`);
+        // Acceder a los datos del error de manera más robusta
+        let errorData = null;
+        if (error.response) {
+          errorData = error.response.data;
+        } else if (error.data) {
+          errorData = error.data;
+        }
+        
+        console.log('Error data:', errorData);
+          if (errorData) {
+          // Si hay errores de validación específicos (422), mostrarlos
+          if (error.response?.status === 422 && errorData.error) {
+            const validationErrors = errorData.error;
+            console.log('Validation errors:', validationErrors);
+            
+            let errorMessages = [];
+              // Convertir los errores de validación en un array de mensajes
+            if (typeof validationErrors === 'object' && validationErrors !== null) {
+              Object.keys(validationErrors).forEach(field => {
+                if (Array.isArray(validationErrors[field])) {
+                  validationErrors[field].forEach(msg => {
+                    errorMessages.push(`${field}: ${msg}`);
+                  });
+                } else {
+                  // Convertir a string si no es array
+                  errorMessages.push(`${field}: ${String(validationErrors[field])}`);
+                }
+              });
+            } else {
+              // Convertir a string si no es un objeto
+              errorMessages.push(String(validationErrors));
+            }
+              // Mostrar cada error por separado
+            errorMessages.forEach(msg => {
+              // Asegurar que el mensaje es una cadena antes de mostrarlo
+              const errorMsg = typeof msg === 'string' ? msg : JSON.stringify(msg);
+              toast.error(errorMsg);
+            });          } else {
+            toast.error(errorData.message || errorData.error || 'Error al comunicar con Mercado Pago');
+          }
+        } else if (error.message) {
+          toast.error(error.message);
         } else {
-          console.error('Network error or other issue with Mercado Pago:', error);
-          alert('Error de conexión al intentar procesar el pago con Mercado Pago.');
+          toast.error('Error de conexión. Por favor, intenta de nuevo.');
         }
       }
-
     } else {
       // Lógica para otros pasos (avanzar al siguiente paso)
-      // La generación de orderId, updateProfile y clearCart se movieron de aquí
-      // ya que deben ocurrir DESPUÉS de un pago exitoso.
       setTimeout(() => {
         setIsSubmitting(false);
         setCurrentStep(currentStep + 1);
       }, 1500); // Simulación de carga
     }
-  };  // Calcular costos adicionales
-  // OFERTA: Envío gratis para cualquier combinación de paquetes de fresas (categoryId: '1') si el subtotal de esos productos es >= 30
+  };  // OFERTA: Envío gratis para cualquier combinación de productos si el total del carrito es >= S/ 30
+  // Mantener variables antiguas para compatibilidad
   const strawberryPackCategoryId = '1';
   
-  // Calcular el subtotal solo de los paquetes de fresas (categoryId: '1')
+  // Calcular el subtotal solo de los paquetes de fresas (categoryId: '1') para seguir mostrando información
   const strawberryPacksSubtotal = cartItems
     .filter(item => item.product.categoryId === strawberryPackCategoryId)
     .reduce((total, item) => total + (item.product.salePrice || item.product.price) * item.quantity, 0);
   
-  // Verificar si aplica la oferta de envío gratis (subtotal de paquetes >= S/ 30)
-  const hasStrawberryPackOffer = strawberryPacksSubtotal >= 30;
+  // Verificar si aplica la oferta de envío gratis por:
+  // 1. El total del carrito es >= S/ 30 (nueva condición)
+  // 2. O bien, el subtotal de paquetes de fresas es >= S/ 30 (condición anterior)
+  const FREE_SHIPPING_THRESHOLD = 30;
+  const hasCartTotalOffer = cartTotal >= FREE_SHIPPING_THRESHOLD;
+  const hasStrawberryPackOffer = strawberryPacksSubtotal >= 30 || hasCartTotalOffer;
 
-  // Costo de envío: gratis si aplica la oferta, sino S/ 5.99
-  const shippingCost = hasStrawberryPackOffer ? 0 : 5.99;
+  // Costo de envío: gratis si aplica la oferta, sino S/ 5.00
+  const shippingCost = hasStrawberryPackOffer ? 0 : 5.00;
   
   // Total final: subtotal de todos los productos + envío (sin impuestos según requerimientos)
-  const orderTotal = cartTotal + shippingCost;
-  return (
+  const orderTotal = cartTotal + shippingCost;  return (
     <div className="min-h-screen pt-24 pb-12 bg-gradient-to-br from-gray-100 via-white to-gray-200">
-      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Header */}
         <div className="mb-8">
@@ -334,12 +540,15 @@ const CheckoutPage = () => {
                       value={addressOption}
                       onChange={e => {
                         setAddressOption(e.target.value);
+                        setSelectedAddressId(null); // Reset selected address when changing option
                         clearAddressError();
                       }}
                     >
                       <option value="profile">Usar mi dirección predeterminada</option>
+                      {hasAddresses && addresses.length > 1 && (
+                        <option value="select">Seleccionar otra dirección guardada</option>
+                      )}
                       <option value="new">Ingresar nueva dirección</option>
-                      {addresses.length > 1 && <option value="select">Seleccionar otra dirección guardada</option>}
                     </select>
 
                     {/* Mostrar errores de direcciones si existen */}
@@ -350,9 +559,7 @@ const CheckoutPage = () => {
                           : addressesError
                         }
                       </div>
-                    )}
-
-                    {addressOption === 'profile' ? (
+                    )}                    {addressOption === 'profile' ? (
                       <div className="bg-gray-50 p-3 rounded-lg border text-gray-700">
                         {addressesLoading ? (
                           <div className="flex items-center space-x-2 text-gray-400">
@@ -362,6 +569,21 @@ const CheckoutPage = () => {
                             </svg>
                             <span>Cargando dirección...</span>
                           </div>
+                        ) : selectedAddressId && addresses.find(addr => addr.id_direccion === selectedAddressId) ? (
+                          (() => {
+                            const address = addresses.find(addr => addr.id_direccion === selectedAddressId);
+                            return (
+                              <>
+                                <div><span className="font-medium">Calle:</span> {address.calle}</div>
+                                <div><span className="font-medium">Número:</span> {address.numero}</div>
+                                <div><span className="font-medium">Distrito:</span> {address.distrito}</div>
+                                <div><span className="font-medium">Ciudad:</span> {address.ciudad}</div>
+                                {address.referencia && (
+                                  <div><span className="font-medium">Referencia:</span> {address.referencia}</div>
+                                )}
+                              </>
+                            );
+                          })()
                         ) : getDefaultAddress() ? (
                           <>
                             <div><span className="font-medium">Calle:</span> {getDefaultAddress().calle}</div>
@@ -378,14 +600,23 @@ const CheckoutPage = () => {
                             <p className="text-sm mt-1">Selecciona "Ingresar nueva dirección" para continuar.</p>
                           </div>
                         )}
-                      </div>
-                    ) : addressOption === 'select' ? (
+                      </div>) : addressOption === 'select' ? (
                       <div className="space-y-3">
-                        {addresses.map(address => (
+                        <p className="text-sm text-gray-600 mb-3">Selecciona una de tus direcciones guardadas:</p>
+                        {addresses.filter(address => !address.predeterminada || address.predeterminada === 'no').map(address => (
                           <div 
                             key={address.id_direccion} 
-                            className="border rounded-lg p-3 cursor-pointer hover:border-red-300 transition-colors"
+                            className={`border rounded-lg p-3 cursor-pointer transition-colors ${
+                              selectedAddressId === address.id_direccion 
+                                ? 'border-red-500 bg-red-50' 
+                                : 'border-gray-300 hover:border-red-300'
+                            }`}
                             onClick={() => {
+                              setSelectedAddressId(address.id_direccion);
+                              toast.success(`Dirección seleccionada: ${address.calle} ${address.numero}, ${address.distrito}`);
+                              // Scroll to top
+                              window.scrollTo(0, 0);
+                              // Change address option to show the selected address in the profile view
                               setAddressOption('profile');
                             }}
                           >
@@ -395,15 +626,15 @@ const CheckoutPage = () => {
                               {address.referencia && (
                                 <div className="text-sm text-gray-600">Referencia: {address.referencia}</div>
                               )}
-                              {address.predeterminada === 'si' && (
-                                <span className="inline-block bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full mt-1">
-                                  Predeterminada
-                                </span>
-                              )}
                             </div>
                           </div>
                         ))}
-                      </div>                    ) : (
+                        {addresses.filter(address => !address.predeterminada || address.predeterminada === 'no').length === 0 && (
+                          <div className="text-gray-500 italic text-center py-4">
+                            No tienes otras direcciones guardadas además de la predeterminada.
+                          </div>
+                        )}
+                      </div>) : (
                       <div>
                         {/* Formulario para ingresar nueva dirección */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-2">
@@ -480,20 +711,20 @@ const CheckoutPage = () => {
                       <button
                         type="button"
                         onClick={handleSaveNewAddress}
-                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 mr-3"
+                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
                         disabled={creatingAddress}
                       >
                         {creatingAddress ? "Guardando..." : "Guardar dirección"}
                       </button>
-                    ) : null}
-                    
-                    <button
-                      type="submit"
-                      className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? "Validando..." : "Continuar al pago"}
-                    </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? "Validando..." : "Continuar al pago"}
+                      </button>
+                    )}
                   </div>
                 </form>
               </div>
@@ -658,9 +889,12 @@ const CheckoutPage = () => {
                     Todos los pedidos están sujetos a disponibilidad y se procesarán en un plazo de 1 hora.
                   </div>
                 </div>
-              )}
-              {hasStrawberryPackOffer && (
-                <div className="text-xs text-green-700 font-semibold mt-1">¡Envío gratis aplicado por tu compra de paquetes de fresas!</div>
+              )}              {hasStrawberryPackOffer && (
+                <div className="text-xs text-green-700 font-semibold mt-1">
+                  {hasCartTotalOffer 
+                    ? "¡Envío gratis aplicado por tu compra mayor a S/ 30!" 
+                    : "¡Envío gratis aplicado por tu compra de paquetes de fresas!"}
+                </div>
               )}
             </div>
           </div>

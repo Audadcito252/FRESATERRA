@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, X, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { mockProducts } from '../data/mockData';
+import searchService from '../services/searchService';
 
 const SearchBar = ({ onClose, autoFocus = false, isMobile = false }) => {
   const [query, setQuery] = useState('');
@@ -18,7 +18,6 @@ const SearchBar = ({ onClose, autoFocus = false, isMobile = false }) => {
       inputRef.current.focus();
     }
   }, [autoFocus]);
-
   // Handle search query changes
   useEffect(() => {
     if (query.trim().length === 0) {
@@ -26,20 +25,30 @@ const SearchBar = ({ onClose, autoFocus = false, isMobile = false }) => {
       return;
     }
 
+    if (query.trim().length < 2) {
+      return; // No buscar hasta tener al menos 2 caracteres
+    }
+
     setIsLoading(true);
     
-    // In a real app, this would be an API call
-    // Using setTimeout to simulate API delay
-    const timer = setTimeout(() => {
-      const filteredResults = mockProducts.filter(product => 
-        product.name.toLowerCase().includes(query.toLowerCase()) ||
-        product.description.toLowerCase().includes(query.toLowerCase())
-      );
-      setResults(filteredResults);
-      setIsLoading(false);
+    // Usar el servicio de búsqueda real
+    const searchTimeout = setTimeout(async () => {
+      try {
+        const response = await searchService.quickSearch(query.trim(), 8);
+        if (response.success) {
+          setResults(response.products || []);
+        } else {
+          setResults([]);
+        }
+      } catch (error) {
+        console.error('Error en búsqueda:', error);
+        setResults([]);
+      } finally {
+        setIsLoading(false);
+      }
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => clearTimeout(searchTimeout);
   }, [query]);
 
   // Only close the SearchBar when submitting the form with Enter key or clicking on a result
@@ -51,7 +60,6 @@ const SearchBar = ({ onClose, autoFocus = false, isMobile = false }) => {
       if (onClose) onClose();
     }
   };
-
   const handleResultClick = (productId) => {
     navigate(`/products/${productId}`);
     setQuery('');
@@ -107,10 +115,8 @@ const SearchBar = ({ onClose, autoFocus = false, isMobile = false }) => {
         >
           Buscar
         </button>
-      </form>
-
-      {/* Search Results */}
-      {query.trim().length > 0 && (
+      </form>      {/* Search Results */}
+      {query.trim().length > 1 && (
         <div
           ref={resultsRef}
           className={`
@@ -124,24 +130,36 @@ const SearchBar = ({ onClose, autoFocus = false, isMobile = false }) => {
           {isLoading ? (
             <div className="p-4 text-center text-gray-500">Buscando...</div>
           ) : results.length > 0 ? (
-            <ul className="pt-5">
+            <ul className="pt-2">
               {results.map((product) => (
-                <li key={product.id}>
-                  <button
-                    onClick={() => handleResultClick(product.id)}
+                <li key={product.id_producto}>                  <button
+                    onClick={() => handleResultClick(product.id_producto)}
                     className="flex items-center w-full p-3 hover:bg-gray-50 text-left border-b border-gray-100"
                   >
                     <img
-                      src={product.images[0]}
-                      alt={product.name}
+                      src={product.url_imagen_completa || product.url_imagen || '/img/proximamente.png'}
+                      alt={product.nombre}
                       className="w-12 h-12 object-cover rounded-md mr-3"
+                      onError={(e) => {
+                        e.target.src = '/img/proximamente.png';
+                      }}
                     />
-                    <div>
-                      <p className="font-medium text-gray-800">{product.name}</p>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-800">{product.nombre}</p>
                       <p className="text-sm text-gray-500">
-                        S/ {product.salePrice || product.price}
+                        S/ {product.precio}
                       </p>
+                      {product.rating > 0 && (
+                        <p className="text-xs text-yellow-600">
+                          ⭐ {product.rating}
+                        </p>
+                      )}
                     </div>
+                    {product.categoria && (
+                      <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">
+                        {product.categoria}
+                      </span>
+                    )}
                   </button>
                 </li>
               ))}

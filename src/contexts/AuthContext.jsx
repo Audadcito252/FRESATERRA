@@ -2,7 +2,7 @@ import { createContext, useState, useContext, useEffect, ReactNode } from 'react
 
 import api from '../services/api'; // Importar el servicio centralizado que manejara todas las peticiones a la API
 
-// Eliminar todos los tipos y anotaciones de TypeScript
+// Creamos el contexto como una constante
 const AuthContext = createContext(null);
 
 // Mock functions para demostración
@@ -23,82 +23,79 @@ const mockLogin = async (email, password) => {
 };
 
 // Añade un nuevo usuario o actualiza el existente
-export const AuthProvider = ({ children }) => {
+function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-
   useEffect(() => {
     // Check if user is already logged in
     const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token');    // Si hay token pero no user, intenta obtener el usuario
-    if (token && (!storedUser || storedUser === 'undefined')) {
-      const fetchUser = async () => {
-        try {
-          // api.defaults.headers.common['Authorization'] = `Bearer ${token}`; // Handled by api.js
-          const response = await api.get('/me'); // Changed from /api/me
-
-          if (response && response.user) { // Adjusted to expect response.user directly based on fetch wrapper
-            const user = response.user;
-            
-            // Verificar si la cuenta está desactivada
-            if (user.status === 'inactive' || user.active === false || user.deactivated === true) {
-              console.log('Usuario con cuenta desactivada detectado, cerrando sesión');
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
-              setUser(null);
-            } else {
-              setUser(user);
-              localStorage.setItem('user', JSON.stringify(user));
-            }
-          } else {
-            // Si no se puede obtener el usuario, limpiar localStorage
+    const token = localStorage.getItem('token');
+    
+    // Función para verificar sesión con el backend
+    const verifySessionWithBackend = async () => {
+      try {
+        const response = await api.get('/me');
+        
+        if (response && response.user) {
+          const user = response.user;
+          
+          // Verificar si la cuenta está desactivada
+          if (user.status === 'inactive' || user.active === false || user.deactivated === true) {
+            console.log('Usuario con cuenta desactivada detectado, cerrando sesión');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+            setUser(null);
+          } else {
+            setUser(user);
+            localStorage.setItem('user', JSON.stringify(user));
           }
-        } catch (error) {
-          console.error("Error fetching user data:", error);
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      // Llamar a la función para obtener el usuario
-      fetchUser();
-
-      // Si hay un usuario intenta parsearlo
-    } else if (storedUser && storedUser !== 'undefined') {
-      try {
-        const user = JSON.parse(storedUser);
-        
-        // Verificar si la cuenta está desactivada
-        if (user.status === 'inactive' || user.active === false || user.deactivated === true) {
-          console.log('Usuario con cuenta desactivada detectado en localStorage, cerrando sesión');
+        } else {
+          // Si no se puede obtener el usuario, limpiar localStorage
+          console.log('No se encontraron datos de usuario en la respuesta del servidor');
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           setUser(null);
-        } else {
-          setUser(user);
-          // Asegúrate de que el token está configurado en las cabeceras
-          if (token) {
-            api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          }
         }
-        setIsLoading(false);
       } catch (error) {
-        console.error("Error parsing user data from localStorage:", error);
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+        console.error("Error al verificar sesión con el backend:", error);
+        
+        // Manejar error de red o servidor caído
+        if (error.isNetworkError) {
+          console.log('Error de red o servidor no disponible. Cerrando sesión local.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setUser(null);
+        } else if (error.status === 401) {
+          // Token inválido o expirado
+          console.log('Token inválido o expirado. Cerrando sesión.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setUser(null);
+        }
+      } finally {
         setIsLoading(false);
       }
-    } else {
-      // Si no hay usuario almacenado, asegúrate de limpiar localStorage
+    };
+    
+    // Si hay token, verificar sesión con el backend siempre
+    if (token) {
+      verifySessionWithBackend();
+    } 
+    // Si no hay token pero hay datos de usuario, limpiar localStorage
+    else if (!token && storedUser) {
+      console.log('Se encontraron datos de usuario sin token. Limpiando datos locales.');
       localStorage.removeItem('user');
+      setUser(null);
+      setIsLoading(false);
+    } 
+    // Si no hay ni token ni usuario
+    else {      localStorage.removeItem('user');
       localStorage.removeItem('token');
+      setUser(null);
       setIsLoading(false);
     }
   }, []);
+  
   const login = async (email, password) => {
     setIsLoading(true);
     try {
@@ -109,22 +106,34 @@ export const AuthProvider = ({ children }) => {
 
       if (response && response.token) {
         if (!response.user) {
-          // Obtener datos del usuario
-          const userResponse = await api.get('/me');
+          try {
+            // Obtener datos del usuario
+            const userResponse = await api.get('/me');
 
-          if (userResponse && userResponse.user) {
-            const token = response.token;
-            const user = userResponse.user;
+            if (userResponse && userResponse.user) {
+              const token = response.token;
+              const user = userResponse.user;
 
-            // Verificar si la cuenta está desactivada
-            if (user.status === 'inactive' || user.active === false || user.deactivated === true) {
-              throw new Error('Tu cuenta ha sido desactivada. Por favor, contacta al soporte para reactivarla.');
+              // Verificar si la cuenta está desactivada
+              if (user.status === 'inactive' || user.active === false || user.deactivated === true) {
+                throw new Error('Tu cuenta ha sido desactivada. Por favor, contacta al soporte para reactivarla.');
+              }
+
+              localStorage.setItem('token', token);
+              localStorage.setItem('user', JSON.stringify(user));
+              setUser(user);
+              return user;
             }
-
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(user));
-            setUser(user);
-            return user;
+          } catch (fetchError) {
+            console.error('Error al obtener datos de usuario después del login:', fetchError);
+            
+            // Si hay un error de red o el servidor no está disponible
+            if (fetchError.isNetworkError) {
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              throw new Error('No se pudo conectar con el servidor. Por favor, verifica tu conexión a internet.');
+            }
+            throw fetchError;
           }
         } else {
           const { token, user } = response;
@@ -146,6 +155,12 @@ export const AuthProvider = ({ children }) => {
       throw new Error('Formato de respuesta inesperado del servidor');
     } catch (error) {
       console.error('Login failed:', error);
+      
+      // Manejar errores de red específicamente
+      if (error.isNetworkError) {
+        throw new Error('No se pudo conectar con el servidor. Por favor, verifica tu conexión a internet.');
+      }
+      
       throw error;
     } finally {
       setIsLoading(false);
@@ -155,48 +170,56 @@ export const AuthProvider = ({ children }) => {
   const loginWithGoogle = async () => {
     setIsLoading(true);
     try {
-      // In a real app, this would integrate with Google OAuth
-      const userData = {
-        id: '2',
-        email: 'user@example.com',
-        firstName: 'Google',
-        lastName: 'User',
-        address: '456 Tech Avenue',
-        city: 'Silicon Valley',
-        state: 'California',
-        zipCode: '94000',
-        phone: '555-987-6543',
-        // Agregamos pedidos simulados para usuarios de Google
-        orders: [
-          {
-            id: 'ORD-GOOG-1234',
-            date: '15/05/2025',
-            total: 65.97,
-            status: 'Entregado',
-            items: [
-              { name: 'Fresas Premium 1kg', price: 12.99, quantity: 3 },
-              { name: 'Jugo de Fresa Orgánico', price: 8.99, quantity: 3 }
-            ]
-          },
-          {
-            id: 'ORD-GOOG-5678',
-            date: '10/05/2025',
-            total: 42.98,
-            status: 'En camino',
-            items: [
-              { name: 'Fresa Deshidratada 200g', price: 7.99, quantity: 2 },
-              { name: 'Cesta de Regalo Deluxe', price: 24.99, quantity: 1 }
-            ]
-          }
-        ]
-      };
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
+      // Redirigir al backend para iniciar el flujo de OAuth con Google
+      window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/google/redirect`;
     } catch (error) {
-      console.error('Google login failed:', error);
-      throw error;
+      console.error('Google login error:', error);
+      throw new Error('Error al iniciar sesión con Google. Por favor intenta de nuevo.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loginWithFacebook = async () => {
+    setIsLoading(true);
+    try {
+      // Redirigir al backend para iniciar el flujo de OAuth con Facebook
+      window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1/auth/facebook/redirect`;
+    } catch (error) {
+      console.error('Facebook login error:', error);
+      throw new Error('Error al iniciar sesión con Facebook. Por favor intenta de nuevo.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSocialAuthCallback = async (token) => {
+    try {
+      // Guardar el token
+      localStorage.setItem('token', token);
+      
+      // Obtener datos del usuario
+      const userResponse = await api.get('/me');
+      
+      if (userResponse && userResponse.user) {
+        const user = userResponse.user;
+        
+        // Verificar si la cuenta está desactivada
+        if (user.status === 'inactive' || user.active === false || user.deactivated === true) {
+          throw new Error('Tu cuenta ha sido desactivada. Por favor, contacta al soporte para reactivarla.');
+        }
+        
+        localStorage.setItem('user', JSON.stringify(user));
+        setUser(user);
+        return user;
+      }
+      
+      throw new Error('No se pudieron obtener los datos del usuario');
+    } catch (error) {
+      console.error('Social auth callback error:', error);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      throw error;
     }
   };
 
@@ -242,16 +265,19 @@ export const AuthProvider = ({ children }) => {
         return user;
       } else {
         return response;
-      }
-    } catch (error) {
+      }    } catch (error) {
       console.error('Registration failed:', error);
-
-      // El manejo de errores es más limpio con los interceptors
-      if (error.status === 422) {
-        throw new Error(error.message); // Ya formateado por el interceptor
+      // Manejo mejorado de errores
+      if (error.status === 422 && error.validationErrors) {
+        // Devolver un mensaje más detallado para la UI
+        const errorMessage = error.message || 'Error en el formulario de registro';
+        const enhancedError = new Error(errorMessage);
+        enhancedError.validationErrors = error.validationErrors;
+        throw enhancedError;
       }
 
-      throw error;
+      // Para otro tipo de errores
+      throw new Error(error.message || 'Error al crear la cuenta. Por favor intente nuevamente.');
     } finally {
       setIsLoading(false);
     }
@@ -452,12 +478,12 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem('token');
       if (!token) {
         return { success: false, error: 'Debes iniciar sesión para desactivar tu cuenta' };
-      }
-
-      const requestData = {
+      }      const requestData = {
         password: currentPassword,
         confirmation: 'DESACTIVAR'
-      };      console.log('Sending account deactivation request');
+      };
+      
+      console.log('Sending account deactivation request');
 
       const response = await api.patch('/me/deactivate', requestData);
 
@@ -495,9 +521,10 @@ export const AuthProvider = ({ children }) => {
         }
         return {
           success: false,
-          error: errorMessage
-        };
-      }      if (error.status === 401) {
+          error: errorMessage        };
+      }
+      
+      if (error.status === 401) {
         // Contraseña incorrecta o token inválido
         return { success: false, error: 'Contraseña incorrecta o sesión expirada' };
       }
@@ -516,6 +543,51 @@ export const AuthProvider = ({ children }) => {
       setIsLoading(false);
     }
   };
+  // Agregar método para verificar la sesión manualmente
+  const verifySession = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        return false;
+      }
+      
+      const response = await api.get('/me');
+      
+      if (response && response.user) {
+        const user = response.user;
+        
+        // Verificar si la cuenta está desactivada
+        if (user.status === 'inactive' || user.active === false || user.deactivated === true) {
+          console.log('Usuario con cuenta desactivada detectado en verificación manual');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setUser(null);
+          return false;
+        } else {
+          setUser(user);
+          localStorage.setItem('user', JSON.stringify(user));
+          return true;
+        }
+      } else {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error verificando sesión:", error);
+      
+      // Si es un error de red o servidor no disponible
+      if (error.isNetworkError) {
+        console.log('Servidor no disponible durante verificación manual. Cerrando sesión local.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+      }
+      
+      return false;
+    }
+  };
 
   // Proporcionar el contexto de autenticación
   return (
@@ -526,12 +598,15 @@ export const AuthProvider = ({ children }) => {
         isLoading,
         login,
         loginWithGoogle,
+        loginWithFacebook,
+        handleSocialAuthCallback,
         register,
         logout,
         resetPassword,
         updateProfile,
         changePassword,
-        deactivateAccount
+        deactivateAccount,
+        verifySession // Agregar la función para verificar la sesión manualmente
       }}
     >
       {children}
@@ -539,10 +614,14 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => {
+// Hook para acceder al contexto de autenticación
+function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('use Auth must be used within an AuthProvider');
+    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
   }
   return context;
-};
+}
+
+// Exportamos todo al final del archivo
+export { AuthContext, AuthProvider, useAuth };
