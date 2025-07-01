@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
@@ -8,15 +8,57 @@ const AuthCallbackPage = () => {
   const navigate = useNavigate();
   const { handleSocialAuthCallback } = useAuth();
   const [isProcessing, setIsProcessing] = useState(true);
+  const hasProcessedRef = useRef(false);
+  const callbackRef = useRef(handleSocialAuthCallback);
+  
+  // Actualizar la referencia cuando cambie la función
+  callbackRef.current = handleSocialAuthCallback;
 
   useEffect(() => {
     const processCallback = async () => {
+      // Evitar procesamiento múltiple usando useRef
+      if (hasProcessedRef.current) return;
+      hasProcessedRef.current = true;
+      
       try {
         const token = searchParams.get('token');
         const error = searchParams.get('error');
 
         if (error) {
-          toast.error('Error en la autenticación social. Por favor intenta de nuevo.');
+          let errorMessage = 'Error en la autenticación social. Por favor intenta de nuevo.';
+          
+          // Manejar diferentes tipos de errores
+          switch (error) {
+            case 'account_deactivated':
+              errorMessage = 'Tu cuenta ha sido desactivada. Por favor, contacta al soporte para reactivarla.';
+              break;
+            case 'invalid_provider':
+              errorMessage = 'Proveedor de autenticación no válido.';
+              break;
+            case 'social_auth_failed':
+              errorMessage = 'Error en la autenticación social. Por favor intenta de nuevo.';
+              break;
+            case 'incomplete_user_data':
+              errorMessage = 'Datos de usuario incompletos. Por favor intenta de nuevo.';
+              break;
+            case 'user_creation_failed':
+              errorMessage = 'Error al crear el usuario. Por favor intenta de nuevo.';
+              break;
+            case 'token_generation_failed':
+              errorMessage = 'Error al generar el token de autenticación. Por favor intenta de nuevo.';
+              break;
+            default:
+              errorMessage = 'Error en la autenticación social. Por favor intenta de nuevo.';
+          }
+          
+          toast.error(errorMessage, {
+            duration: error === 'account_deactivated' ? 6000 : 4000,
+            style: error === 'account_deactivated' ? {
+              background: '#FEF2F2',
+              color: '#991B1B',
+              border: '1px solid #FECACA'
+            } : {}
+          });
           navigate('/login');
           return;
         }
@@ -28,13 +70,34 @@ const AuthCallbackPage = () => {
         }
 
         // Procesar el token y obtener datos del usuario
-        await handleSocialAuthCallback(token);
+        const user = await callbackRef.current(token);
         
-        toast.success('¡Inicio de sesión exitoso!');
+        if (user) {
+          toast.success('¡Inicio de sesión exitoso!', {
+            duration: 3000,
+          });
+        }
+        
         navigate('/');
       } catch (error) {
         console.error('Error processing social auth callback:', error);
-        toast.error(error.message || 'Error al procesar la autenticación.');
+        
+        // Verificar si es error de cuenta desactivada
+        if (error.message && error.message.includes('desactivada')) {
+          toast.error(
+            'Tu cuenta ha sido desactivada. Por favor, contacta al soporte para reactivarla.',
+            {
+              duration: 6000,
+              style: {
+                background: '#FEF2F2',
+                color: '#991B1B',
+                border: '1px solid #FECACA'
+              }
+            }
+          );
+        } else {
+          toast.error(error.message || 'Error al procesar la autenticación.');
+        }
         navigate('/login');
       } finally {
         setIsProcessing(false);
@@ -42,7 +105,7 @@ const AuthCallbackPage = () => {
     };
 
     processCallback();
-  }, [searchParams, navigate, handleSocialAuthCallback]);
+  }, [searchParams, navigate]); // Removemos handleSocialAuthCallback de las dependencias
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f9f9f9]">
