@@ -1,6 +1,7 @@
 import { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 
 import api from '../services/api'; // Importar el servicio centralizado que manejara todas las peticiones a la API
+import config from '../config/config'; // Importar configuración centralizada
 
 // Creamos el contexto como una constante
 const AuthContext = createContext(null);
@@ -171,8 +172,9 @@ function AuthProvider({ children }) {
   const loginWithGoogle = async () => {
     setIsLoading(true);
     try {
-      // Redirigir al backend para iniciar el flujo de OAuth con Google
-      window.location.href = `${import.meta.env.VITE_API_URL || 'http://api.fresaterra.shop:8000/api/v1'}/auth/google/redirect`;
+      // Usar configuración centralizada para obtener la URL de Google OAuth
+      config.log('Iniciando autenticación con Google...', config.getGoogleAuthUrl());
+      window.location.href = config.getGoogleAuthUrl();
     } catch (error) {
       console.error('Google login error:', error);
       throw new Error('Error al iniciar sesión con Google. Por favor intenta de nuevo.');
@@ -184,8 +186,9 @@ function AuthProvider({ children }) {
   const loginWithFacebook = async () => {
     setIsLoading(true);
     try {
-      // Redirigir al backend para iniciar el flujo de OAuth con Facebook
-      window.location.href = `${import.meta.env.VITE_API_URL || 'http://api.fresaterra.shop:8000/api/v1'}/auth/facebook/redirect`;
+      // Usar configuración centralizada para obtener la URL de Facebook OAuth
+      config.log('Iniciando autenticación con Facebook...', config.getFacebookAuthUrl());
+      window.location.href = config.getFacebookAuthUrl();
     } catch (error) {
       console.error('Facebook login error:', error);
       throw new Error('Error al iniciar sesión con Facebook. Por favor intenta de nuevo.');
@@ -527,7 +530,8 @@ function AuthProvider({ children }) {
         }
         return {
           success: false,
-          error: errorMessage        };
+          error: errorMessage        
+        };
       }
       
       if (error.status === 401) {

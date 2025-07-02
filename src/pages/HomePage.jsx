@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ChevronRight, Star, Truck } from 'lucide-react'; // Iconos necesarios
 import ProductCard from '../components/ProductCard';
 import { productsService } from '../services/productsService';
+import config from '../config/config';
 
 // Función para obtener la imagen adecuada según la categoría del backend
 const getCategoryImage = (categoryName) => {
@@ -19,6 +20,16 @@ const getCategoryImage = (categoryName) => {
   } else {
     return 'https://images.pexels.com/photos/1703272/pexels-photo-1703272.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2';
   }
+};
+
+const getImageUrl = (product) => {
+  if (product.url_imagen_completa) {
+    return product.url_imagen_completa; // Usar la URL completa si está disponible
+  }
+  if (product.url_imagen) {
+    return config.getApiUrl(`/storage/${product.url_imagen}`); // Construir la URL dinámica
+  }
+  return '/images/placeholder-strawberry.jpg'; // Fallback para imágenes faltantes
 };
 
 const HomePage = () => {
@@ -51,16 +62,7 @@ const HomePage = () => {
         }
         
         const transformedProducts = productsData.map(product => {
-          // Usar la URL completa que viene del backend
-          let imageUrl = '';
-          if (product.url_imagen_completa) {
-            imageUrl = product.url_imagen_completa;
-          } else {
-            // Fallback: construir URL manualmente si no viene la completa
-            imageUrl = product.url_imagen ? 
-              `http://127.0.0.1:8000/storage/${product.url_imagen}` : 
-              '/images/placeholder-strawberry.jpg';
-          }
+          const imageUrl = getImageUrl(product); // Usar la función dinámica para obtener la URL de la imagen
 
           return {
             id: product.id_producto.toString(),

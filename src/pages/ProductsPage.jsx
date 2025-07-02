@@ -4,6 +4,7 @@ import { Filter, ChevronDown, Search, X } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 import { productsService } from '../services/productsService';
 import searchService from '../services/searchService';
+import config from '../config/config';
 
 const ProductsPage = () => {
   const location = useLocation();
@@ -80,14 +81,7 @@ const ProductsPage = () => {
       
       // Transform backend products data to frontend format
       const transformedProducts = productsResponse.data.data.map(product => {
-        let imageUrl = '';
-        if (product.url_imagen_completa) {
-          imageUrl = product.url_imagen_completa;
-        } else {
-          imageUrl = product.url_imagen ? 
-            `http://127.0.0.1:8000/storage/${product.url_imagen}` : 
-            '/images/placeholder-strawberry.jpg';
-        }
+        const imageUrl = product.url_imagen_completa || (product.url_imagen ? config.getApiUrl(`/storage/${product.url_imagen}`) : '/images/placeholder-strawberry.jpg');
 
         return {
           id: product.id_producto.toString(),

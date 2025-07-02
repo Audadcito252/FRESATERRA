@@ -1,7 +1,8 @@
 import axios from 'axios';
+import config from '../config/config';
 
 // URL base de la API - Ajusta esto a la URL donde se está ejecutando tu API Laravel
-const API_URL = 'http://localhost:8000/api/v1/me/notificaciones';
+const API_URL = config.getApiUrl('/me/notificaciones');
 
 // Configurar Axios con opciones globales
 const apiClient = axios.create({
@@ -253,8 +254,7 @@ class NotificacionesService {
    */
   async getMensajes() {
     try {
-      // Endpoint separado para obtener mensajes
-      const response = await axios.get('http://localhost:8000/api/v1/messages', {
+      const response = await axios.get(config.getApiUrl('/messages'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json',
@@ -291,7 +291,7 @@ class NotificacionesService {
     try {
       // Usar la URL de admin para los servicios de notificación
       const adminApiClient = axios.create({
-        baseURL: 'http://localhost:8000/api/v1/notificaciones',
+        baseURL: config.getApiUrl('/notificaciones'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',

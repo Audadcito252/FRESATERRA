@@ -1,9 +1,10 @@
 // filepath: c:\Users\MikeZeroX\Desktop\fresafront\FRESATERRA\src\services\api.js
 
 import axios from 'axios';
+import config from '../config/config'; // Importar configuración centralizada
 
-// Usar variable de entorno o fallback a localhost
-const baseURL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1';
+// Usar configuración centralizada
+const baseURL = config.apiUrl;
 
 // Crear instancia de Axios
 const api = axios.create({
@@ -17,35 +18,35 @@ const api = axios.create({
 
 // Request interceptor - Agregar token automáticamente
 api.interceptors.request.use(
-  (config) => {
+  (requestConfig) => {
     // Token de usuario regular
     const token = localStorage.getItem('token');
     
     // Token de administrador
     const adminToken = localStorage.getItem('adminToken');
-    const isAdminRoute = config.url && (config.url.includes('/admin/') || config.url.startsWith('admin/'));
+    const isAdminRoute = requestConfig.url && (requestConfig.url.includes('/admin/') || requestConfig.url.startsWith('admin/'));
       // Usar token de admin para rutas administrativas, token regular para otras rutas
     if (isAdminRoute && adminToken) {
-      config.headers.Authorization = `Bearer ${adminToken}`;
-      console.log('Using admin token for admin route:', config.url);
-      console.log('Admin token preview:', adminToken.substring(0, 50) + '...');
+      requestConfig.headers.Authorization = `Bearer ${adminToken}`;
+      config.log('Using admin token for admin route:', requestConfig.url);
+      config.log('Admin token preview:', adminToken.substring(0, 50) + '...');
     } else if (token && !isAdminRoute) {
-      config.headers.Authorization = `Bearer ${token}`;
-      console.log('Using regular token for route:', config.url);
+      requestConfig.headers.Authorization = `Bearer ${token}`;
+      config.log('Using regular token for route:', requestConfig.url);
     } else if (isAdminRoute && !adminToken) {
-      console.error('No admin token found for admin route:', config.url);
+      console.error('No admin token found for admin route:', requestConfig.url);
     }
     
-    // Log para debugging (remover en producción)
-    console.log('API Request:', {
-      method: config.method?.toUpperCase(),
-      url: config.url,
-      data: config.data,
-      headers: config.headers,
+    // Log para debugging usando config centralizado
+    config.log('API Request:', {
+      method: requestConfig.method?.toUpperCase(),
+      url: requestConfig.url,
+      data: requestConfig.data,
+      headers: requestConfig.headers,
       isAdminRoute: isAdminRoute
     });
     
-    return config;
+    return requestConfig;
   },
   (error) => {
     console.error('Request Error:', error);
