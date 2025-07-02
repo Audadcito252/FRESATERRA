@@ -1,7 +1,8 @@
 import axios from 'axios';
+import config from '../config/config';
 
 // URL base de la API - Ajusta esto a la URL donde se está ejecutando tu API Laravel
-const API_URL = 'http://localhost:8000/api/v1/comments';
+const API_URL = config.getApiUrl('/comments');
 
 // Configurar Axios con opciones globales
 const apiClient = axios.create({
@@ -123,9 +124,7 @@ class ComentariosService {
    */
   async getUsuarios() {
     try {
-      // Cambiamos la ruta para usar un endpoint separado de usuarios
-      // Asumiendo que tienes un endpoint en tu API para obtener usuarios
-      const response = await axios.get('http://localhost:8000/api/v1/users');
+      const response = await axios.get(config.getApiUrl('/users'));
       return response.data;
     } catch (error) {
       console.error('Error al obtener usuarios:', error);
