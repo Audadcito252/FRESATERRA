@@ -17,6 +17,22 @@ const Navbar = () => {
   const location = useLocation();
   const searchBarRef = useRef(null);
 
+  // Función auxiliar para obtener la URL del avatar
+  const getUserAvatar = (user) => {
+    if (!user) return null;
+    
+    // Intentar diferentes campos que podrían contener el avatar
+    const avatarFields = ['avatar', 'profile_picture', 'picture', 'image', 'photo'];
+    
+    for (const field of avatarFields) {
+      if (user[field] && typeof user[field] === 'string' && user[field].trim() !== '') {
+        return user[field];
+      }
+    }
+    
+    return null;
+  };
+
   // Close mobile menu when route changes
   useEffect(() => {
     setIsMenuOpen(false);
@@ -142,10 +158,10 @@ const Navbar = () => {
                 <button className="flex items-center text-gray-800 hover:text-red-600 transition-colors">
                   {/* Avatar dinámico - Google avatar o icono por defecto */}
                   <div className="w-6 h-6 rounded-full overflow-hidden bg-red-100 flex items-center justify-center mr-2">
-                    {user?.avatar ? (
+                    {getUserAvatar(user) ? (
                       <img 
-                        src={user.avatar} 
-                        alt={`${user?.nombre || user?.name}`}
+                        src={getUserAvatar(user)} 
+                        alt={`${user?.nombre || user?.name || 'Usuario'}`}
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           // Si falla la carga de la imagen, mostrar icono por defecto
@@ -156,7 +172,7 @@ const Navbar = () => {
                     ) : null}
                     <User 
                       size={16} 
-                      className={`text-red-600 ${user?.avatar ? 'hidden' : ''}`} 
+                      className={`text-red-600 ${getUserAvatar(user) ? 'hidden' : ''}`} 
                     />
                   </div>
                   <span>{user?.nombre || user?.name}</span>
@@ -271,10 +287,10 @@ const Navbar = () => {
                     <Link to="/profile" className="flex items-center px-4 py-3 text-gray-800 hover:bg-gray-50">
                       {/* Avatar dinámico en móvil también */}
                       <div className="w-5 h-5 rounded-full overflow-hidden bg-red-100 flex items-center justify-center mr-3">
-                        {user?.avatar ? (
+                        {getUserAvatar(user) ? (
                           <img 
-                            src={user.avatar} 
-                            alt={`${user?.nombre || user?.name}`}
+                            src={getUserAvatar(user)} 
+                            alt={`${user?.nombre || user?.name || 'Usuario'}`}
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               e.target.style.display = 'none';
@@ -284,7 +300,7 @@ const Navbar = () => {
                         ) : null}
                         <User 
                           size={14} 
-                          className={`text-red-600 ${user?.avatar ? 'hidden' : ''}`} 
+                          className={`text-red-600 ${getUserAvatar(user) ? 'hidden' : ''}`} 
                         />
                       </div>
                       Perfil

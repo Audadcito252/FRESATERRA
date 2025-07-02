@@ -89,7 +89,8 @@ function AuthProvider({ children }) {
       setIsLoading(false);
     } 
     // Si no hay ni token ni usuario
-    else {      localStorage.removeItem('user');
+    else {      
+      localStorage.removeItem('user');
       localStorage.removeItem('token');
       setUser(null);
       setIsLoading(false);
