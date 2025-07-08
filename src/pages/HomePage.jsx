@@ -4,6 +4,7 @@ import { ChevronRight, Star, Truck } from 'lucide-react'; // Iconos necesarios
 import ProductCard from '../components/ProductCard';
 import { productsService } from '../services/productsService';
 import config from '../config/config';
+import SEOHelmet from '../components/SEOHelmet';
 
 // Función para obtener la imagen adecuada según la categoría del backend
 const getCategoryImage = (categoryName) => {
@@ -114,7 +115,17 @@ const HomePage = () => {
   }, []);
 
   return (
-    <div className="pt-16 md:pt-20">
+    <>
+      <SEOHelmet 
+        title="FresaTerra | Fresas Frescas en Cusco | Entrega en 1-2 horas"
+        description="Fresas frescas de calidad premium en Cusco. Entrega rápida en 1-2 horas. Paquetes de 1kg, 2kg y 5kg. Directo del productor a tu mesa. ¡Ordena ahora en FresaTerra!"
+        keywords="fresas cusco, fresas frescas, entrega fresas cusco, fresas premium, frutas frescas cusco, delivery fresas, paquetes fresas, fresaterra"
+        canonical="/"
+        ogTitle="FresaTerra - Fresas Frescas Premium en Cusco"
+        ogDescription="Las mejores fresas frescas de Cusco con entrega en 1-2 horas. Calidad premium, paquetes desde 1kg. ¡Ordena ya!"
+        ogType="website"
+      />
+      <div className="pt-16 md:pt-20">
       {/* Hero Section */}
       <section className="relative h-[70vh] bg-cover bg-center flex items-center" 
         style={{ backgroundImage: 'url("/img/fresasfondo.jpg")' }}>
@@ -367,7 +378,8 @@ const HomePage = () => {
           </form>
         </div>
       </section>
-    </div>
+      </div>
+    </>
   );
 };
 

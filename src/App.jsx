@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { HelmetProvider } from 'react-helmet-async';
 import { ShoppingCartProvider } from './contexts/ShoppingCartContext';
 import { AuthProvider } from './contexts/AuthContext';
 import MercadoPagoHandler from './components/MercadoPagoHandler';
@@ -40,14 +41,15 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
-    <AuthProvider>
-      <ShoppingCartProvider>
-        <Router future={{ 
-          v7_startTransition: true ,
-          v7_relativeSplatPath: true
-        }}>
-          <MercadoPagoHandler />
-          <Toaster position="top-center" />
+    <HelmetProvider>
+      <AuthProvider>
+        <ShoppingCartProvider>
+          <Router future={{ 
+            v7_startTransition: true ,
+            v7_relativeSplatPath: true
+          }}>
+            <MercadoPagoHandler />
+            <Toaster position="top-center" />
           <Routes>
             {/* Public and User Routes */}
             <Route path="/" element={<MainLayout />}>
@@ -96,6 +98,7 @@ function App() {
         </Router>
       </ShoppingCartProvider>
     </AuthProvider>
+    </HelmetProvider>
   );
 }
 

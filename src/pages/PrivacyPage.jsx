@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Shield, Lock, Eye, Database, Mail, Phone, User, Clock, FileText, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import SEOHelmet from '../components/SEOHelmet';
 
 const PrivacyPage = () => {
     useEffect(() => {
@@ -15,8 +16,17 @@ const PrivacyPage = () => {
     };
 
     return (
-        <div className="min-h-screen pt-24 pb-16 bg-gradient-to-br from-gray-100 via-white to-gray-200">
-            <div className="container mx-auto px-4 max-w-6xl">
+        <>
+            <SEOHelmet 
+                title="Política de Privacidad"
+                description="Política de privacidad de FresaTerra - Conoce cómo protegemos tus datos personales en nuestro e-commerce de fresas frescas en Cusco, Perú. Transparencia y seguridad garantizada."
+                keywords="política privacidad fresaterra, protección datos cusco, privacidad e-commerce fresas, seguridad datos peru"
+                canonical="/privacy"
+                ogTitle="Política de Privacidad - FresaTerra Cusco"
+                ogDescription="Conoce cómo FresaTerra protege tu información personal. Política de privacidad transparente para nuestro servicio de fresas frescas en Cusco."
+            />
+            <div className="min-h-screen pt-24 pb-16 bg-gradient-to-br from-gray-100 via-white to-gray-200">
+                <div className="container mx-auto px-4 max-w-6xl">
                 {/* Header Section */}
                 <div className="mb-12 text-center">
                     <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight text-gray-900">
@@ -592,6 +602,7 @@ const PrivacyPage = () => {
                 </div>
             </div>
         </div>
+        </>
     );
 };
 

@@ -1,0 +1,31 @@
+{
+  "name": "FresaTerra - Fresas Frescas en Cusco",
+  "short_name": "FresaTerra",
+  "description": "Fresas frescas de calidad premium en Cusco",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#dc2626",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/favicon-strawberry.svg",
+      "sizes": "16x16",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/favicon-strawberry.svg",
+      "sizes": "32x32",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/favicon-strawberry.svg",
+      "sizes": "180x180",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/favicon-strawberry.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

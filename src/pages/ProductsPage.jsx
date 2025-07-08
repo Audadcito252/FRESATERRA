@@ -5,6 +5,7 @@ import ProductCard from '../components/ProductCard';
 import { productsService } from '../services/productsService';
 import searchService from '../services/searchService';
 import config from '../config/config';
+import SEOHelmet from '../components/SEOHelmet';
 
 const ProductsPage = () => {
   const location = useLocation();
@@ -253,7 +254,16 @@ const ProductsPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
   return (
-    <div className="pt-16 md:pt-20 pb-16">
+    <>
+      <SEOHelmet 
+        title="Productos de Fresas Premium en Cusco | Paquetes 1kg, 2kg, 5kg"
+        description="Descubre nuestros productos de fresas frescas en Cusco. Paquetes de 1kg, 2kg y 5kg. Calidad premium, entrega rápida. ¡Elige tu paquete ideal en FresaTerra!"
+        keywords="productos fresas cusco, paquetes fresas 1kg 2kg 5kg, fresas premium cusco, productos fresaterra, catálogo fresas"
+        canonical="/products"
+        ogTitle="Productos de Fresas Premium - FresaTerra Cusco"
+        ogDescription="Explora nuestro catálogo de fresas frescas. Paquetes de diferentes tamaños, calidad premium y entrega rápida en Cusco."
+      />
+      <div className="pt-16 md:pt-20 pb-16">
       <div className="bg-gray-100 py-8">
         <div className="container mx-auto px-4">
           <h1 className="text-3xl font-bold mb-2">Nuestros productos de fresa</h1>
@@ -607,10 +617,11 @@ const ProductsPage = () => {
             )}
           </div>
         </div>
-        </>
+          </>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

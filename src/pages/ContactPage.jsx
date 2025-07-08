@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Phone, Mail, MapPin, Clock, Send, User, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { buildWhatsAppUrl } from '../utils/whatsapp';
+import SEOHelmet from '../components/SEOHelmet';
 
 const initialErrors = {
     name: '',
@@ -146,8 +147,17 @@ const ContactPage = () => {
     };
 
     return (
-        <div className="min-h-screen pt-24 pb-16 bg-gradient-to-br from-gray-100 via-white to-gray-200">
-            <div className="container mx-auto px-4 max-w-6xl">
+        <>
+            <SEOHelmet 
+                title="Contáctanos"
+                description="Contáctanos - FresaTerra Cusco | Fresas frescas entregadas en 1-2 horas. Atención personalizada, WhatsApp directo y respuesta en 24 horas. ¡Estamos aquí para ayudarte!"
+                keywords="contacto fresaterra, servicio cliente cusco, whatsapp fresas, soporte fresaterra, contactar fresas cusco"
+                canonical="/contact"
+                ogTitle="Contáctanos - FresaTerra Cusco"
+                ogDescription="¿Necesitas ayuda? Contáctanos vía WhatsApp, email o teléfono. Atención personalizada para tu pedido de fresas frescas en Cusco."
+            />
+            <div className="min-h-screen pt-24 pb-16 bg-gradient-to-br from-gray-100 via-white to-gray-200">
+                <div className="container mx-auto px-4 max-w-6xl">
                 {/* Header Section */}
                 <div className="mb-12 text-center">
                     <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight text-gray-900">Contáctanos</h1>
@@ -398,6 +408,7 @@ const ContactPage = () => {
                 </div>
             </div>
         </div>
+        </>
     );
 };
 
