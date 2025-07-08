@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Phone, Mail, MapPin, Clock, Send, User, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { buildWhatsAppUrl } from '../utils/whatsapp';
+
+const initialErrors = {
+    name: '',
+    email: '',
+    phone: '',
+    subject: '',
+    message: ''
+};
 
 const ContactPage = () => {
     const [formData, setFormData] = useState({
@@ -11,6 +20,8 @@ const ContactPage = () => {
         message: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errors, setErrors] = useState({});
+    const [touched, setTouched] = useState({});
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -22,16 +33,63 @@ const ContactPage = () => {
             ...prev,
             [name]: value
         }));
+        setTouched(prev => ({ ...prev, [name]: true }));
+        setErrors(prev => ({ ...prev, [name]: '' }));
+    };
+
+    const handleBlur = (e) => {
+        const { name } = e.target;
+        setTouched(prev => ({ ...prev, [name]: true }));
+        const fieldError = validate({ ...formData })[name];
+        setErrors(prev => ({ ...prev, [name]: fieldError }));
+    };
+
+    // Validaciones robustas para cada campo
+    const validate = (data) => {
+        const newErrors = {};
+        // Nombre: solo letras y espacios, mínimo 2 caracteres
+        if (!data.name.trim()) {
+            newErrors.name = 'El nombre es obligatorio.';
+        } else if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ ]{2,}$/.test(data.name.trim())) {
+            newErrors.name = 'El nombre solo debe contener letras y espacios (mínimo 2 caracteres).';
+        }
+        // Correo: formato válido
+        if (!data.email.trim()) {
+            newErrors.email = 'El correo es obligatorio.';
+        } else if (!/^[\w-.]+@[\w-]+\.[a-zA-Z]{2,}$/.test(data.email.trim())) {
+            newErrors.email = 'El correo no es válido.';
+        }
+        // Teléfono: 9 dígitos, empieza con 9, solo números
+        if (!data.phone.trim()) {
+            newErrors.phone = 'El teléfono es obligatorio.';
+        } else if (!/^9\d{8}$/.test(data.phone.trim())) {
+            newErrors.phone = 'El teléfono debe tener 9 dígitos, empezar con 9 y no incluir el código de país.';
+        }
+        // Asunto: obligatorio y válido
+        if (!data.subject.trim()) {
+            newErrors.subject = 'Selecciona un asunto.';
+        } else if (!['producto', 'pedido', 'envio', 'calidad', 'productor', 'otro'].includes(data.subject)) {
+            newErrors.subject = 'El asunto seleccionado no es válido.';
+        }
+        // Mensaje: obligatorio, mínimo 10 caracteres
+        if (!data.message.trim()) {
+            newErrors.message = 'El mensaje es obligatorio.';
+        } else if (data.message.trim().length < 10) {
+            newErrors.message = 'El mensaje debe tener al menos 10 caracteres.';
+        }
+        return newErrors;
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setTouched({ name: true, email: true, phone: true, subject: true, message: true });
+        const validationErrors = validate(formData);
+        setErrors(validationErrors);
+        const hasErrors = Object.values(validationErrors).some(Boolean);
+        if (hasErrors) return;
         setIsSubmitting(true);
-
         try {
-            // Simulamos el envío del formulario
             await new Promise(resolve => setTimeout(resolve, 1000));
-            
             toast.success('¡Mensaje enviado correctamente! Te responderemos pronto.');
             setFormData({
                 name: '',
@@ -40,10 +98,50 @@ const ContactPage = () => {
                 subject: '',
                 message: ''
             });
+            setTouched({});
+            setErrors(initialErrors);
         } catch (error) {
             toast.error('Error al enviar el mensaje. Por favor, intenta nuevamente.');
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    // Solo letras y espacios para nombre (en onChange y onKeyDown)
+    const handleNameChange = (e) => {
+        const value = e.target.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ ]/g, '');
+        setFormData(prev => ({ ...prev, name: value }));
+        setTouched(prev => ({ ...prev, name: true }));
+        setErrors(prev => ({ ...prev, name: '' }));
+    };
+    const handleNameKeyDown = (e) => {
+        // Permitir teclas de control, espacio y letras
+        if (
+            !(
+                (e.key.length === 1 && /[A-Za-zÁÉÍÓÚáéíóúÑñ ]/.test(e.key)) ||
+                ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab"].includes(e.key)
+            )
+        ) {
+            e.preventDefault();
+        }
+    };
+    // Solo números para teléfono (en onChange y onKeyDown)
+    const handlePhoneChange = (e) => {
+        let value = e.target.value.replace(/[^0-9]/g, '');
+        if (value.length > 9) value = value.slice(0, 9);
+        setFormData(prev => ({ ...prev, phone: value }));
+        setTouched(prev => ({ ...prev, phone: true }));
+        setErrors(prev => ({ ...prev, phone: '' }));
+    };
+    const handlePhoneKeyDown = (e) => {
+        // Permitir solo números y teclas de control
+        if (
+            !(
+                (e.key.length === 1 && /[0-9]/.test(e.key)) ||
+                ["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab"].includes(e.key)
+            )
+        ) {
+            e.preventDefault();
         }
     };
 
@@ -64,8 +162,7 @@ const ContactPage = () => {
                         <div className="bg-white rounded-xl shadow-md overflow-hidden">
                             <div className="p-8">
                                 <h2 className="text-2xl font-bold text-gray-900 mb-6">Envíanos un mensaje</h2>
-                                
-                                <form onSubmit={handleSubmit} className="space-y-6">
+                                <form onSubmit={handleSubmit} className="space-y-6" noValidate>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div>
                                             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -80,12 +177,14 @@ const ContactPage = () => {
                                                     id="name"
                                                     name="name"
                                                     value={formData.name}
-                                                    onChange={handleChange}
-                                                    required
-                                                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition-colors"
+                                                    onChange={handleNameChange}
+                                                    onKeyDown={handleNameKeyDown}
+                                                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-red-500 focus:border-red-500 transition-colors ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
                                                     placeholder="Tu nombre completo"
+                                                    autoComplete="off"
                                                 />
                                             </div>
+                                            {errors.name && <p className="text-red-600 text-xs mt-1">{errors.name}</p>}
                                         </div>
 
                                         <div>
@@ -102,18 +201,18 @@ const ContactPage = () => {
                                                     name="email"
                                                     value={formData.email}
                                                     onChange={handleChange}
-                                                    required
-                                                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition-colors"
+                                                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-red-500 focus:border-red-500 transition-colors ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
                                                     placeholder="tu@email.com"
                                                 />
                                             </div>
+                                            {errors.email && <p className="text-red-600 text-xs mt-1">{errors.email}</p>}
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div>
                                             <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                                                Teléfono
+                                                Teléfono *
                                             </label>
                                             <div className="relative">
                                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -124,11 +223,15 @@ const ContactPage = () => {
                                                     id="phone"
                                                     name="phone"
                                                     value={formData.phone}
-                                                    onChange={handleChange}
-                                                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition-colors"
-                                                    placeholder="+51 900 000 000"
+                                                    onChange={handlePhoneChange}
+                                                    onKeyDown={handlePhoneKeyDown}
+                                                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-red-500 focus:border-red-500 transition-colors ${errors.phone ? 'border-red-500' : 'border-gray-300'}`}
+                                                    placeholder="900000000"
+                                                    maxLength={9}
+                                                    autoComplete="off"
                                                 />
                                             </div>
+                                            {errors.phone && <p className="text-red-600 text-xs mt-1">{errors.phone}</p>}
                                         </div>
 
                                         <div>
@@ -140,8 +243,7 @@ const ContactPage = () => {
                                                 name="subject"
                                                 value={formData.subject}
                                                 onChange={handleChange}
-                                                required
-                                                className="block w-full py-3 px-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition-colors"
+                                                className={`block w-full py-3 px-3 border rounded-lg focus:ring-red-500 focus:border-red-500 transition-colors ${errors.subject ? 'border-red-500' : 'border-gray-300'}`}
                                             >
                                                 <option value="">Selecciona un asunto</option>
                                                 <option value="producto">Consulta sobre productos</option>
@@ -151,6 +253,7 @@ const ContactPage = () => {
                                                 <option value="productor">Quiero ser productor</option>
                                                 <option value="otro">Otro</option>
                                             </select>
+                                            {errors.subject && <p className="text-red-600 text-xs mt-1">{errors.subject}</p>}
                                         </div>
                                     </div>
 
@@ -168,30 +271,49 @@ const ContactPage = () => {
                                                 rows={6}
                                                 value={formData.message}
                                                 onChange={handleChange}
-                                                required
-                                                className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 transition-colors resize-none"
+                                                className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-red-500 focus:border-red-500 transition-colors resize-none ${errors.message ? 'border-red-500' : 'border-gray-300'}`}
                                                 placeholder="Cuéntanos cómo podemos ayudarte..."
                                             />
                                         </div>
+                                        {errors.message && <p className="text-red-600 text-xs mt-1">{errors.message}</p>}
                                     </div>
 
-                                    <button
-                                        type="submit"
-                                        disabled={isSubmitting}
-                                        className="w-full bg-red-600 text-white py-3 px-6 rounded-lg hover:bg-red-700 focus:ring-4 focus:ring-red-200 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                                    >
-                                        {isSubmitting ? (
-                                            <>
-                                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                                                Enviando...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Send size={18} className="mr-2" />
-                                                Enviar mensaje
-                                            </>
-                                        )}
-                                    </button>
+                                    <div className="flex flex-col sm:flex-row gap-4 mt-6">
+                                        <button
+                                            type="submit"
+                                            disabled={isSubmitting}
+                                            className="w-full sm:w-1/2 bg-red-600 text-white py-3 px-6 rounded-lg hover:bg-red-700 focus:ring-4 focus:ring-red-200 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                        >
+                                            {isSubmitting ? (
+                                                <>
+                                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                                                    Enviando...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Send size={18} className="mr-2" />
+                                                    Enviar mensaje
+                                                </>
+                                            )}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="w-full sm:w-1/2 inline-flex items-center justify-center py-3 px-6 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors text-base shadow-sm"
+                                            onClick={() => {
+                                                const validationErrors = validate(formData);
+                                                setErrors(validationErrors);
+                                                if (Object.keys(validationErrors).length > 0) {
+                                                    toast.error('Por favor corrige los errores antes de continuar a WhatsApp.');
+                                                    return;
+                                                }
+                                                const url = buildWhatsAppUrl(formData);
+                                                window.open(url, '_blank');
+                                            }}
+                                        >
+                                            <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" className="h-5 w-5 mr-2" />
+                                            WhatsApp
+                                        </button>
+                                    </div>
                                 </form>
                             </div>
                         </div>
@@ -203,7 +325,7 @@ const ContactPage = () => {
                         <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6">
                             <div className="p-6">
                                 <h3 className="text-xl font-semibold text-gray-900 mb-6">Información de contacto</h3>
-                                
+
                                 <div className="space-y-6">
                                     <div className="flex items-start">
                                         <div className="flex-shrink-0 p-2 bg-red-50 rounded-full">
