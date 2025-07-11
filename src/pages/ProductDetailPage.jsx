@@ -1,18 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { mockProducts } from '../data/mockData';
 import { useShoppingCart } from '../contexts/ShoppingCartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { reviewsService } from '../services/reviewsService';
+import { productsService } from '../services/productsService';
+import config from '../config/config';
 import ProductReview from '../components/ProductReview';
 import ReviewsList from '../components/ReviewsList';
 
 const ProductDetailPage = () => {
   const { id } = useParams();
-  const product = mockProducts.find((p) => p.id === id);
   const { addToCart } = useShoppingCart();
   const { user } = useAuth();
-  const [selectedImage, setSelectedImage] = useState(product ? product.images[0] : '');
+  
+  // Estados para el producto
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  
+  const [selectedImage, setSelectedImage] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [reviews, setReviews] = useState([]);
   const [reviewToEdit, setReviewToEdit] = useState(null);
@@ -24,6 +31,138 @@ const ProductDetailPage = () => {
   // Referencias para controlar las llamadas API
   const reviewsLoaded = useRef(false);
   const userReviewLoaded = useRef(false);
+
+  // Función para transformar datos del backend al formato frontend
+  const transformProductData = (backendProduct) => {
+    // Generar URL de imagen con múltiples fallbacks
+    const getImageUrl = (product) => {
+      // Primera opción: url_imagen_completa (accessor del backend)
+      if (product.url_imagen_completa) {
+        return product.url_imagen_completa;
+      }
+      
+      // Segunda opción: construir URL desde url_imagen
+      if (product.url_imagen) {
+        return config.getApiUrl(`/storage/${product.url_imagen}`);
+      }
+      
+      // Tercera opción: imagen por defecto
+      return '/images/placeholder-strawberry.jpg';
+    };
+
+    // Crear especificaciones basadas en los datos del producto
+    const specifications = {};
+    
+    // Solo agregar especificaciones si tenemos los datos del backend
+    if (backendProduct.peso) {
+      specifications['Peso'] = backendProduct.peso;
+    }
+    
+    if (backendProduct.estado) {
+      specifications['Estado'] = backendProduct.estado === 'activo' ? 'Disponible' : 'No disponible';
+    }
+    
+    if (backendProduct.categoria?.nombre) {
+      specifications['Categoría'] = backendProduct.categoria.nombre;
+    }
+    
+    // Agregar información de reviews si está disponible
+    if (backendProduct.comentarios_count !== undefined) {
+      specifications['Reseñas'] = `${backendProduct.comentarios_count} ${backendProduct.comentarios_count === 1 ? 'reseña' : 'reseñas'}`;
+    }
+    
+    // Si no hay especificaciones, agregar al menos una por defecto
+    if (Object.keys(specifications).length === 0) {
+      specifications['Información'] = 'Especificaciones no disponibles';
+    }
+
+    return {
+      id: backendProduct.id_producto.toString(),
+      name: backendProduct.nombre,
+      description: backendProduct.descripcion,
+      price: parseFloat(backendProduct.precio),
+      salePrice: null, // No hay precios de oferta en el backend actual
+      images: [
+        getImageUrl(backendProduct),
+        getImageUrl(backendProduct), // Duplicamos la imagen principal
+        getImageUrl(backendProduct)  // por compatibilidad con el frontend
+      ],
+      categoryId: backendProduct.categorias_id_categoria?.toString() || '1',
+      categoryName: backendProduct.categoria?.nombre || 'Sin categoría',
+      stock: 100, // Valor por defecto hasta implementar inventario
+      featured: false, // Valor por defecto
+      inStock: backendProduct.estado === 'activo',
+      weight: backendProduct.peso,
+      specifications: specifications,
+      averageRating: backendProduct.comentarios_avg_calificacion || 0,
+      totalReviews: backendProduct.comentarios_count || 0,
+      reviews: [] // Se cargan por separado
+    };
+  };
+
+  // Cargar producto desde el backend
+  const loadProduct = async () => {
+    if (!id) {
+      console.log('❌ No hay ID de producto');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🔍 Cargando producto con ID:', id);
+      const response = await productsService.getProduct(id);
+      console.log('📦 Respuesta del backend:', response);
+      
+      if (response?.success && response?.data) {
+        const productData = response.data;
+        console.log('✅ Producto encontrado:', productData);
+        
+        const transformedProduct = transformProductData(productData);
+        console.log('🔄 Producto transformado:', transformedProduct);
+        
+        setProduct(transformedProduct);
+        setSelectedImage(transformedProduct.images[0]);
+        
+        // Cargar productos relacionados
+        if (transformedProduct.categoryId) {
+          loadRelatedProducts(transformedProduct.categoryId);
+        }
+      } else {
+        console.log('❌ Respuesta inválida del backend:', response);
+        setError('Producto no encontrado');
+      }
+    } catch (error) {
+      console.error('💥 Error loading product:', error);
+      console.error('💥 Error response:', error.response?.data);
+      setError(`Error al cargar el producto: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Cargar productos relacionados
+  const loadRelatedProducts = async (categoryId) => {
+    try {
+      const response = await productsService.getProducts({
+        categoria: categoryId,
+        por_pagina: 4 // Obtener 4 productos para mostrar 3 (excluyendo el actual)
+      });
+      
+      if (response?.success && response?.data?.data) {
+        const relatedProductsData = response.data.data
+          .filter(p => p.id_producto.toString() !== id) // Excluir el producto actual
+          .slice(0, 3) // Tomar solo 3 productos
+          .map(p => transformProductData(p));
+        
+        setRelatedProducts(relatedProductsData);
+      }
+    } catch (error) {
+      console.error('Error loading related products:', error);
+      setRelatedProducts([]);
+    }
+  };
   // Cargar reseñas del producto
   const loadProductReviews = async () => {
     if (!product) return;
@@ -78,7 +217,10 @@ const ProductDetailPage = () => {
   };
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Cargar producto cuando cambie el ID
+    loadProduct();
   }, [id]);
+  
   useEffect(() => {
     // Reset de referencias cuando cambia el ID del producto
     if (id) {
@@ -110,13 +252,42 @@ const ProductDetailPage = () => {
     }
   }, [product]);
 
-  if (!product) {
+  if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 mt-24">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold mb-8">Product Not Found</h1>
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <p className="text-gray-600">No product found with id {id}.</p>
+          <div className="flex justify-center items-center min-h-[400px]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Cargando producto...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className="container mx-auto px-4 py-8 mt-24">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+            <h1 className="text-3xl font-bold mb-4 text-gray-800">Producto no encontrado</h1>
+            <p className="text-gray-600 mb-6">{error || `No se encontró el producto con ID ${id}.`}</p>
+            <div className="space-x-4">
+              <Link 
+                to="/products" 
+                className="inline-block bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-3 rounded-lg transition-colors"
+              >
+                Ver todos los productos
+              </Link>
+              <button
+                onClick={() => window.location.reload()}
+                className="inline-block bg-gray-600 hover:bg-gray-700 text-white font-medium px-6 py-3 rounded-lg transition-colors"
+              >
+                Reintentar
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -177,10 +348,10 @@ const ProductDetailPage = () => {
         <Link to="/" className="hover:underline text-red-600 font-semibold">Inicio</Link>
         <span className="mx-1">/</span>
         <Link to="/products" className="hover:underline text-red-600 font-semibold">Productos</Link>
-        {product.categoryId && (
+        {product.categoryName && (
           <>
             <span className="mx-1">/</span>
-            <span className="text-gray-700 font-bold">{product.categoryId}</span>
+            <span className="text-gray-700 font-bold">{product.categoryName}</span>
           </>
         )}
       </nav>
@@ -366,11 +537,9 @@ const ProductDetailPage = () => {
       {/* Productos relacionados */}
       <div className="mt-16">
         <h2 className="text-2xl font-bold mb-6 text-gray-900">Productos relacionados</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-          {mockProducts
-            .filter(p => p.id !== product.id && p.categoryId === product.categoryId)
-            .slice(0, 3)
-            .map(related => (
+        {relatedProducts.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {relatedProducts.map(related => (
               <div key={related.id} className="">
                 <Link to={`/products/${related.id}`} className="block hover:shadow-lg rounded-lg transition-shadow duration-200">
                   <img src={related.images[0]} alt={related.name} className="w-full h-40 object-cover rounded-t-lg" />
@@ -385,12 +554,23 @@ const ProductDetailPage = () => {
                         <>S/ {related.price.toFixed(2)}</>
                       )}
                     </p>
-                    <span className="text-sm text-gray-500">{related.stock > 0 ? 'En stock' : 'Agotado'}</span>
+                    <span className="text-sm text-gray-500">{related.inStock ? 'En stock' : 'Agotado'}</span>
                   </div>
                 </Link>
               </div>
             ))}
-        </div>
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-gray-600">No hay productos relacionados disponibles.</p>
+            <Link 
+              to="/products" 
+              className="inline-block mt-4 bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-3 rounded-lg transition-colors"
+            >
+              Ver todos los productos
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );
