@@ -141,7 +141,7 @@ const ordersService = {
     }
   },
   /**
-   * Reanudar un pedido abandonado
+   * Reanudar un pedido pendiente
    */
   resumeOrder: async (orderId) => {
     try {
@@ -151,6 +151,24 @@ const ordersService = {
       return response;
     } catch (error) {
       console.error('Error reanudando pedido:', error);
+      console.error('Error status:', error.response?.status);
+      console.error('Error data:', error.response?.data);
+      throw error;
+    }
+  },
+
+  /**
+   * Cancelar un pedido pendiente
+   * @param {string|number} orderId - ID del pedido a cancelar
+   */
+  cancelOrder: async (orderId) => {
+    try {
+      console.log('Cancelando pedido:', orderId);
+      const response = await api.patch(`/orders/${orderId}/cancel`);
+      console.log('cancelOrder response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error cancelando pedido:', error);
       console.error('Error status:', error.response?.status);
       console.error('Error data:', error.response?.data);
       throw error;

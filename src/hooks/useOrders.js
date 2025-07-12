@@ -40,6 +40,12 @@ const useOrders = () => {
             envio: Array.isArray(order.envios) ? order.envios[0] : order.envio || order.envios,
             // Mapear pagos a pago (tomar el primer pago si hay múltiples)
             pago: Array.isArray(order.pagos) ? order.pagos[0] : order.pago || order.pagos,
+            // 🔧 DEBUG: Log del estado del envío
+            ...(console.log(`🚚 Debug envío para pedido ${order.id_pedido}:`, {
+              envio_directo: order.envio,
+              envios_array: order.envios,
+              envio_estado: order.envio?.estado || (Array.isArray(order.envios) ? order.envios[0]?.estado : 'no encontrado')
+            }) || {}),
             // Asegurar que referencia_pago esté disponible
             referencia_pago: order.referencia_pago || 
                             (Array.isArray(order.pagos) && order.pagos[0]?.referencia_pago) ||
@@ -103,10 +109,9 @@ const useOrders = () => {
       'pendiente': 'Pendiente',
       'confirmado': 'Confirmado', 
       'preparando': 'Preparando',
-      'enviado': 'Enviado',
+      'en_camino': 'En camino',
       'entregado': 'Entregado',
-      'cancelado': 'Cancelado',
-      'abandonado': 'Pago no completado'
+      'cancelado': 'Cancelado'
     };
     
     return statusMap[status] || status;
@@ -118,10 +123,9 @@ const useOrders = () => {
       'pendiente': 'bg-yellow-100 text-yellow-800',
       'confirmado': 'bg-blue-100 text-blue-800',
       'preparando': 'bg-purple-100 text-purple-800',
-      'enviado': 'bg-indigo-100 text-indigo-800',
+      'en_camino': 'bg-indigo-100 text-indigo-800',
       'entregado': 'bg-green-100 text-green-800',
-      'cancelado': 'bg-red-100 text-red-800',
-      'abandonado': 'bg-orange-100 text-orange-800'
+      'cancelado': 'bg-red-100 text-red-800'
     };
     
     return statusClasses[status] || 'bg-gray-100 text-gray-800';

@@ -30,7 +30,7 @@ const ResumeOrderPage = () => {
           setLoading(true);
           const orderDetails = await ordersService.getOrderDetails(orderId);
             console.log('Order details response:', orderDetails);
-            if (orderDetails && orderDetails.order && orderDetails.order.estado === 'abandonado') {
+            if (orderDetails && orderDetails.order && orderDetails.order.estado === 'pendiente') {
             setOrder(orderDetails.order);
             console.log('Order set successfully:', orderDetails.order);
             console.log('🔍 Order envios array:', orderDetails.order.envios);
@@ -39,8 +39,8 @@ const ResumeOrderPage = () => {
               console.log('🔍 First envio:', orderDetails.order.envios[0]);
               console.log('🔍 Monto envio:', orderDetails.order.envios[0].monto_envio);
             }
-          } else if (orderDetails && orderDetails.order && orderDetails.order.estado !== 'abandonado') {
-            setError(`Este pedido tiene estado "${orderDetails.order.estado}" y no puede ser reanudado`);
+          } else if (orderDetails && orderDetails.order && orderDetails.order.estado !== 'pendiente') {
+            setError(`Este pedido tiene estado "${orderDetails.order.estado}" y no puede ser completado`);
           } else {
             setError('Este pedido no está pendiente de pago o ya no existe');
           }
@@ -112,7 +112,7 @@ const ResumeOrderPage = () => {
         throw new Error('No se pudo obtener el punto de inicio de Mercado Pago');
       }
     } catch (error) {
-      toast.error('Error al reanudar el pago');
+      toast.error('Error al procesar el pago');
       console.error(error);
       setLoading(false);
     }
@@ -156,7 +156,7 @@ const ResumeOrderPage = () => {
   return (
     <div className="container mx-auto px-4 py-12 pt-24">
       <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Reanudar pedido #{orderId}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Completar pago del pedido #{orderId}</h1>
         
         <div className="bg-yellow-50 p-4 rounded-lg mb-6">
           <p className="text-yellow-800">

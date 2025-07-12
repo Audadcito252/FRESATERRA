@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
 import api from '../services/api';
 
-export const useMercadoPagoAbandonment = () => {
+export const useMercadoPagoReturn = () => {
   useEffect(() => {
     // Esta función se ejecutará cuando la aplicación se cargue
-    const checkForAbandonedCheckout = async () => {
-      console.log('🔍 Verificando abandono de Mercado Pago...');
+    const checkForMercadoPagoReturn = async () => {
+      console.log('🔍 Verificando estado del pago en Mercado Pago...');
       
       // Verificar si el usuario fue redirigido a Mercado Pago
       const mpRedirectFlag = sessionStorage.getItem('redirectedToMercadoPago');
@@ -17,7 +17,7 @@ export const useMercadoPagoAbandonment = () => {
       });
       
       if (mpRedirectFlag === 'true' && pendingOrderId) {
-        console.log(`⚠️ Detectado posible abandono para pedido ${pendingOrderId}`);
+        console.log(`⚠️ Usuario regresó de MercadoPago para pedido ${pendingOrderId}`);
         
         try {          // Verificar el estado del pedido
           console.log(`🔄 Consultando estado del pedido ${pendingOrderId}...`);
@@ -33,15 +33,14 @@ export const useMercadoPagoAbandonment = () => {
             fullResponse: response
           });
           
-          // Solo marcar como abandonado si el pedido está en estado 'pendiente'
-          // y NO está en 'confirmado' o 'completado'
-          if (orderStatus === 'pendiente') {            console.log(`🚨 Marcando pedido ${pendingOrderId} como abandonado...`);
-            const updateResponse = await api.patch(`/orders/${pendingOrderId}/status`, { estado: 'abandonado' });
-            console.log('✅ Pedido marcado como abandonado exitosamente:', updateResponse);
+          // Solo procesar si el pedido está en estado 'pendiente'
+          // NO cambiar el estado, solo limpiar las banderas
+          if (orderStatus === 'pendiente') {
+            console.log(`ℹ️ Pedido ${pendingOrderId} permanece en estado pendiente (pago no completado)`);
           } else if (orderStatus === 'confirmado' || orderStatus === 'completado') {
-            console.log(`✅ Pedido ${pendingOrderId} ya fue confirmado/completado, no se marca como abandonado`);
+            console.log(`✅ Pedido ${pendingOrderId} ya fue confirmado/completado`);
           } else {
-            console.log(`ℹ️ Pedido ${pendingOrderId} en estado '${orderStatus}', no se requiere acción`);
+            console.log(`ℹ️ Pedido ${pendingOrderId} en estado '${orderStatus}'`);
           }        } catch (error) {
           console.error('❌ Error verificando pedido abandonado:', error);
           console.error('📋 Detalles del error:', {
@@ -49,31 +48,26 @@ export const useMercadoPagoAbandonment = () => {
             response: error.response?.data,
             status: error.response?.status
           });
-            // Si hay error de autenticación, usar el endpoint especial sin autenticación
+          // Si hay error de autenticación, solo limpiar las banderas
           if (error.response?.status === 401) {
-            console.log('🔑 Error de autenticación detectado, usando endpoint especial...');            try {
-              // Usar el endpoint especial que no requiere autenticación
-              const specialResponse = await api.post(`/orders/${pendingOrderId}/mark-abandoned`);
-              console.log('✅ Pedido marcado como abandonado via endpoint especial:', specialResponse);
-            }catch (secondError) {
-              console.error('❌ Error en endpoint especial:', secondError);
-            }
+            console.log('🔑 Error de autenticación detectado, pedido permanece en estado pendiente');
+            // Ya no intentamos marcar como abandonado, solo limpiamos las banderas
           }
         }finally {
           // Limpiar las banderas de sesión
           console.log('🧹 Limpiando banderas de sessionStorage...');
           sessionStorage.removeItem('redirectedToMercadoPago');
           sessionStorage.removeItem('pendingOrderId');
-          console.log('✅ Banderas de sessionStorage limpiadas por useMercadoPagoAbandonment');
+          console.log('✅ Banderas de sessionStorage limpiadas');
         }
       } else {
-        console.log('ℹ️ No se detectaron banderas de abandono de Mercado Pago');
+        console.log('ℹ️ No se detectaron banderas de retorno de Mercado Pago');
       }
     };
     
     // Agregar un pequeño delay para asegurarse de que la aplicación esté completamente cargada
     const timer = setTimeout(() => {
-      checkForAbandonedCheckout();
+      checkForMercadoPagoReturn();
     }, 1000); // 1 segundo de delay
     
     return () => clearTimeout(timer);

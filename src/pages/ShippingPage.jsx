@@ -136,35 +136,42 @@ const ShippingPage = () => {
                             Proceso de tu Pedido
                         </h2>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                             {[
                                 {
                                     step: 1,
-                                    title: "Confirmación",
-                                    description: "Confirmas tu pedido y realizas el pago",
-                                    icon: CheckCircle,
-                                    color: "bg-green-50 text-green-600"
+                                    title: "Pendiente",
+                                    description: "Realizas tu pedido y esperas completar el pago",
+                                    icon: Clock,
+                                    color: "bg-yellow-50 text-yellow-600"
                                 },
                                 {
                                     step: 2,
-                                    title: "Preparación",
-                                    description: "Cosechamos y empacamos tus fresas frescas",
-                                    icon: Package,
+                                    title: "Confirmado",
+                                    description: "Pago exitoso, comenzamos los preparativos",
+                                    icon: CheckCircle,
                                     color: "bg-blue-50 text-blue-600"
                                 },
                                 {
                                     step: 3,
-                                    title: "En Camino",
-                                    description: "Tu pedido está siendo enviado a tu dirección",
-                                    icon: Truck,
+                                    title: "Preparando",
+                                    description: "Cosechamos y empacamos tus fresas frescas",
+                                    icon: Package,
                                     color: "bg-purple-50 text-purple-600"
                                 },
                                 {
                                     step: 4,
+                                    title: "En Camino",
+                                    description: "Tu pedido está siendo enviado a tu dirección",
+                                    icon: Truck,
+                                    color: "bg-indigo-50 text-indigo-600"
+                                },
+                                {
+                                    step: 5,
                                     title: "Entregado",
                                     description: "¡Disfruta de tus fresas frescas!",
                                     icon: CheckCircle,
-                                    color: "bg-red-50 text-red-600"
+                                    color: "bg-green-50 text-green-600"
                                 }
                             ].map((step, index) => (
                                 <div key={index} className="text-center">

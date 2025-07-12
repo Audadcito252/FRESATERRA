@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import useOrders from '../hooks/useOrders';
+import ordersService from '../services/ordersService';
 import { ShoppingCart, Package, Truck, RefreshCw, Calendar, CreditCard, MapPin, Eye, X, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -57,8 +58,10 @@ function OrdersPage() {
         linea1: envio.direccion_linea1_snapshot,
         linea2: envio.direccion_linea2_snapshot || '',
         ciudad: envio.direccion_ciudad_snapshot || '',
-        estado: envio.direccion_estado_snapshot || '',
-        formatted: `${envio.direccion_linea1_snapshot} ${envio.direccion_linea2_snapshot || ''}, ${envio.direccion_ciudad_snapshot || ''}`.trim()
+        distrito: envio.direccion_estado_snapshot || '', // En BD es distrito pero se guarda como estado_snapshot
+        referencia: envio.direccion_linea2_snapshot || '',
+        // 🔧 CORREGIDO: Dirección principal SIN referencia (la referencia va por separado)
+        formatted: `${envio.direccion_linea1_snapshot}${envio.direccion_estado_snapshot ? ', ' + envio.direccion_estado_snapshot : ''}${envio.direccion_ciudad_snapshot ? ', ' + envio.direccion_ciudad_snapshot : ''}`.trim()
       };
     }
     
@@ -68,7 +71,9 @@ function OrdersPage() {
         linea1: envio.direccion.calle + ' ' + envio.direccion.numero,
         linea2: envio.direccion.referencia || '',
         ciudad: envio.direccion.ciudad,
-        estado: envio.direccion.distrito,
+        distrito: envio.direccion.distrito,
+        referencia: envio.direccion.referencia || '',
+        // 🔧 CORREGIDO: Dirección principal SIN referencia (la referencia va por separado)
         formatted: `${envio.direccion.calle} ${envio.direccion.numero}, ${envio.direccion.distrito}, ${envio.direccion.ciudad}`
       };
     }
@@ -148,7 +153,7 @@ function OrdersPage() {
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedOrder(null);
-  };  // Función para reanudar un pedido abandonado
+  };  // Función para reanudar un pedido pendiente
   const handleResumeOrder = async (orderId) => {
     try {
       setResumeLoading(true);
@@ -399,14 +404,24 @@ function OrdersPage() {
                           Ver detalles
                         </button>
 
-                        {order.estado === 'abandonado' && (
-                          <button
-                            onClick={() => handleResumeOrder(order.id_pedido)}
-                            className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
-                          >
-                            <RefreshCw className="w-4 h-4" />
-                            Reanudar pago
-                          </button>
+                        {order.estado === 'pendiente' && (
+                          <>
+                            <button
+                              onClick={() => handleResumeOrder(order.id_pedido)}
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                              Completar pago
+                            </button>
+                            <button
+                              onClick={() => handleCancelOrder(order.id_pedido)}
+                              disabled={cancelLoading}
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700 transition-colors disabled:opacity-50"
+                            >
+                              <X className="w-4 h-4" />
+                              {cancelLoading ? 'Cancelando...' : 'Cancelar pedido'}
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -453,14 +468,24 @@ function OrdersPage() {
                           Ver detalles
                         </button>
 
-                        {order.estado === 'abandonado' && (
-                          <button
-                            onClick={() => handleResumeOrder(order.id_pedido)}
-                            className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
-                          >
-                            <RefreshCw className="w-4 h-4" />
-                            Reanudar
-                          </button>
+                        {order.estado === 'pendiente' && (
+                          <>
+                            <button
+                              onClick={() => handleResumeOrder(order.id_pedido)}
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                              Completar
+                            </button>
+                            <button
+                              onClick={() => handleCancelOrder(order.id_pedido)}
+                              disabled={cancelLoading}
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700 transition-colors disabled:opacity-50"
+                            >
+                              <X className="w-4 h-4" />
+                              Cancelar
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -533,17 +558,41 @@ function OrdersPage() {
                         {formatOrderStatus(selectedOrder.estado)}
                       </span>
                       
-                      {selectedOrder.estado === 'abandonado' && (
-                        <div className="mt-4">
-                          <p className="text-sm text-gray-600 mb-2">El pago de este pedido no fue completado.</p>
+                      {selectedOrder.estado === 'pendiente' && (
+                        <div className="mt-4 space-y-3">
+                          <p className="text-sm text-gray-600 mb-2">El pago de este pedido está pendiente.</p>
                           <button
                             onClick={() => handleResumeOrder(selectedOrder.id_pedido)}
                             disabled={resumeLoading}
                             className="inline-flex items-center gap-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors w-full justify-center"
                           >
                             <RefreshCw className="w-4 h-4" />
-                            {resumeLoading ? 'Procesando...' : 'Reanudar Pago'}
+                            {resumeLoading ? 'Procesando...' : 'Completar Pago'}
                           </button>
+                          <button
+                            onClick={() => handleCancelOrder(selectedOrder.id_pedido)}
+                            disabled={cancelLoading}
+                            className="inline-flex items-center gap-1 px-3 py-2 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700 transition-colors w-full justify-center disabled:opacity-50"
+                          >
+                            <X className="w-4 h-4" />
+                            {cancelLoading ? 'Cancelando...' : 'Cancelar Pedido'}
+                          </button>
+                        </div>
+                      )}
+
+                      {selectedOrder.estado === 'cancelado' && (
+                        <div className="mt-4">
+                          <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
+                            Este pedido ha sido cancelado.
+                          </p>
+                        </div>
+                      )}
+
+                      {selectedOrder.estado === 'confirmado' && (
+                        <div className="mt-4">
+                          <p className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+                            Tu pedido está confirmado, se realizarán los preparativos para el envío.
+                          </p>
                         </div>
                       )}
                     </div>
@@ -596,15 +645,27 @@ function OrdersPage() {
                         <Package className="w-4 h-4 text-gray-600" />
                         <h4 className="font-medium text-gray-900">Estado</h4>
                       </div>
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${selectedOrder.envio?.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
-                          selectedOrder.envio?.estado === 'enviado' ? 'bg-blue-100 text-blue-800' :
-                            selectedOrder.envio?.estado === 'entregado' ? 'bg-green-100 text-green-800' :
-                              'bg-gray-100 text-gray-800'
-                        }`}>
-                        {selectedOrder.envio?.estado ?
-                          selectedOrder.envio.estado.charAt(0).toUpperCase() + selectedOrder.envio.estado.slice(1) :
-                          'Pendiente'
-                        }
+                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                        selectedOrder.envio?.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
+                        selectedOrder.envio?.estado === 'confirmado' ? 'bg-blue-100 text-blue-800' :
+                        selectedOrder.envio?.estado === 'preparando' ? 'bg-purple-100 text-purple-800' :
+                        selectedOrder.envio?.estado === 'en_camino' ? 'bg-indigo-100 text-indigo-800' :
+                        selectedOrder.envio?.estado === 'entregado' ? 'bg-green-100 text-green-800' :
+                        selectedOrder.envio?.estado === 'cancelado' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {selectedOrder.envio?.estado ? (() => {
+                          const estado = selectedOrder.envio.estado;
+                          const estadosTexto = {
+                            'pendiente': 'Pendiente',
+                            'confirmado': 'Confirmado',
+                            'preparando': 'Preparando',
+                            'en_camino': 'En Camino',
+                            'entregado': 'Entregado',
+                            'cancelado': 'Cancelado'
+                          };
+                          return estadosTexto[estado] || estado.charAt(0).toUpperCase() + estado.slice(1);
+                        })() : 'Pendiente'}
                       </span>
                     </div>
 
@@ -648,10 +709,11 @@ function OrdersPage() {
                           <h4 className="font-medium text-gray-900 mb-1">Dirección de Entrega</h4>
                           
                           {(() => {
-                            // 🔧 Usar helper para obtener dirección (snapshot o actual)
+                            // 🔧 CORREGIDO: Usar helper para obtener dirección (snapshot o actual)
                             if (selectedOrder.envio) {
                               const addressData = getShippingAddress(selectedOrder.envio);
-                              if (addressData.formatted && addressData.formatted !== 'Dirección no disponible') {                                return (
+                              if (addressData.formatted && addressData.formatted !== 'Dirección no disponible') {
+                                return (
                                   <div>
                                     <p className="text-sm text-gray-700 mb-2">{addressData.formatted}</p>
                                   </div>
@@ -668,112 +730,7 @@ function OrdersPage() {
                               }
                             }
 
-                            // 🔧 LEGACY FALLBACKS - mantener para compatibilidad hacia atrás
-                            if (selectedOrder.shipping_info) {
-                              const info = selectedOrder.shipping_info;
-                              let direccionTexto = '';
-
-                              if (info.address) {
-                                direccionTexto = info.address;
-                              } else {
-                                // Construir desde partes individuales si están disponibles
-                                const partes = [];
-                                if (info.calle) partes.push(info.calle);
-                                if (info.numero) partes.push(info.numero);
-                                if (info.distrito) partes.push(info.distrito);
-                                if (info.ciudad) partes.push(info.ciudad || 'Cusco');
-
-                                direccionTexto = partes.join(', ');
-                              }
-
-                              if (direccionTexto) {
-                                return <p className="text-sm text-gray-700">{direccionTexto}</p>;
-                              }
-                            }
-
-                            // 2. Usar dirección_envio si existe (puede ser una cadena completa) (LEGACY)
-                            if (selectedOrder.direccion_envio) {
-                              return <p className="text-sm text-gray-700">{selectedOrder.direccion_envio}</p>;
-                            }
-
-                            // 3. Usar dirección desde el objeto envío si existe (LEGACY)
-                            if (selectedOrder.envio) {
-                              // Construir desde partes individuales del envío
-                              const env = selectedOrder.envio;
-                              if (env.calle || env.numero) {
-                                let direccionTexto = '';
-                                if (env.calle) direccionTexto += env.calle;
-                                if (env.numero) direccionTexto += ' ' + env.numero;
-                                if (env.distrito) direccionTexto += ', ' + env.distrito;
-                                if (env.ciudad) direccionTexto += ', ' + env.ciudad;
-                                else direccionTexto += ', Cusco';
-
-                                return <p className="text-sm text-gray-700">{direccionTexto}</p>;
-                              }
-                            }
-
-                            // 4. Buscar en el primer envío del array envios si existe (LEGACY)
-                            if (selectedOrder.envios && selectedOrder.envios.length > 0) {
-                              const primerEnvio = selectedOrder.envios[0];
-                              if (primerEnvio.direccion) {
-                                const direccion = primerEnvio.direccion;
-                                let direccionTexto = '';
-
-                                if (direccion.formatted_address) {
-                                  direccionTexto = direccion.formatted_address;
-                                } else {
-                                  // Construimos manualmente a partir de los campos individuales
-                                  const partes = [];
-                                  if (direccion.calle) partes.push(direccion.calle);
-                                  if (direccion.numero) partes.push(direccion.numero);
-                                  if (direccion.distrito) partes.push(direccion.distrito);
-                                  if (direccion.ciudad) partes.push(direccion.ciudad || 'Cusco');
-
-                                  direccionTexto = partes.join(', ');
-                                }
-
-                                if (direccionTexto) {
-                                  return <p className="text-sm text-gray-700">{direccionTexto}</p>;
-                                }
-                              }
-                            }
-
-                            // 5. Usar objeto direccion si existe (LEGACY)
-                            if (selectedOrder.direccion) {
-                              const dir = selectedOrder.direccion;
-                              // Si la dirección tiene un método formateado
-                              if (dir.formatted_address) {
-                                return <p className="text-sm text-gray-700">{dir.formatted_address}</p>;
-                              }
-
-                              // Intentar construir a partir de las partes
-                              if (dir.calle || dir.numero) {
-                                let direccionTexto = '';
-                                if (dir.calle) direccionTexto += dir.calle;
-                                if (dir.numero) direccionTexto += ' ' + dir.numero;
-                                if (dir.distrito) direccionTexto += ', ' + dir.distrito;
-                                if (dir.ciudad) direccionTexto += ', ' + dir.ciudad;
-                                else direccionTexto += ', Cusco';
-
-                                return <p className="text-sm text-gray-700">{direccionTexto}</p>;
-                              }
-                            }
-
-                            // 6. Buscar componentes individuales en el objeto principal (LEGACY)
-                            const calle = selectedOrder.direccion_calle || selectedOrder.calle;
-                            const numero = selectedOrder.direccion_numero || selectedOrder.numero;
-                            const distrito = selectedOrder.direccion_distrito || selectedOrder.distrito;
-                            const ciudad = selectedOrder.direccion_ciudad || selectedOrder.ciudad || 'Cusco';
-
-                            if (calle || numero) {
-                              return (
-                                <p className="text-sm text-gray-700">
-                                  {calle || ''} {numero || ''}{distrito ? `, ${distrito}` : ''}{ciudad ? `, ${ciudad}` : ', Cusco'}
-                                </p>
-                              );
-                            }
-
-                            // Si llegamos aquí, no encontramos ninguna información de dirección
+                            // Si no hay datos, mostrar mensaje por defecto
                             return <p className="text-sm text-gray-700">Dirección no especificada</p>;
                           })()}
                           {(() => {
@@ -786,7 +743,7 @@ function OrdersPage() {
 
                             if (referencia) {
                               return (
-                                <p className="text-sm text-gray-500 mt-1">
+                                <p className="text-sm text-gray-500 mt-2">
                                   <strong>Referencias:</strong> {referencia}
                                 </p>
                               );
