@@ -12,7 +12,7 @@ import useAddresses from '../hooks/useAddresses';
 import toast from 'react-hot-toast';
 
 const CheckoutPage = () => {
-  const { cartItems, cartTotal, clearCart, checkCartStock } = useShoppingCart();
+  const { cartItems, cartTotal, clearCart, checkCartStock, refreshCartStock } = useShoppingCart();
   const { user, updateProfile, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   
@@ -247,8 +247,10 @@ const CheckoutPage = () => {
           };
         }        console.log('Creando pedido con datos:', checkoutData);
         
-        // 🔧 VERIFICAR STOCK ANTES DE CREAR EL PEDIDO
-        console.log('Verificando stock antes de crear el pedido...');
+        // Actualizar stock del carrito antes de verificar
+        await refreshCartStock();
+        
+        // Verificar stock antes de crear el pedido
         const stockCheck = await checkCartStock();
         
         if (!stockCheck.success) {
@@ -878,6 +880,24 @@ const CheckoutPage = () => {
                         <p className="text-sm font-medium">
                           S/ {((product.salePrice || product.price) * quantity).toFixed(2)}
                         </p>
+                      </div>
+                      {/* 🔧 AGREGADO: Mostrar información de stock */}
+                      <div className="flex items-center justify-between mt-1">
+                        <div className="flex items-center text-xs">
+                          {product.en_stock ? (
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              (product.cantidad_disponible || 0) >= quantity 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              Stock: {product.cantidad_disponible || 0}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">
+                              Sin stock
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

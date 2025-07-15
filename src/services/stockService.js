@@ -14,7 +14,12 @@ const stockService = {
       const response = await api.post('/products/check-stock', {
         items: items
       });
-      return response.data;
+      
+      if (response.status === 200 && response.data) {
+        return response.data;
+      } else {
+        throw new Error('Respuesta inválida del backend');
+      }
     } catch (error) {
       console.error('Error verificando stock:', error);
       
@@ -154,28 +159,34 @@ const stockService = {
         };
       }
 
-      const items = cartItems.map(item => ({
-        producto_id: item.id,
-        cantidad: item.quantity
-      }));
-
-      const stockCheck = await stockService.checkStock(items);
+      const items = cartItems.map(item => {
+        const productoId = item.product?.id || item.id;
+        return {
+          producto_id: parseInt(productoId),
+          cantidad: item.quantity
+        };
+      });
       
-      if (!stockCheck.data?.available) {
-        const unavailableItems = stockCheck.data?.details?.filter(item => !item.disponible) || [];
+      const response = await api.post('/products/check-stock', { items });
+      const stockCheck = response.data;
+      
+      const isAvailable = stockCheck.available === true;
+      
+      if (!isAvailable) {
+        const unavailableItems = stockCheck.details?.filter(item => !item.disponible) || [];
         
         return {
           success: false,
           message: 'Algunos productos no tienen stock suficiente',
           unavailableItems,
-          details: stockCheck.data?.details
+          details: stockCheck.details
         };
       }
 
       return {
         success: true,
         message: 'Stock verificado correctamente',
-        details: stockCheck.data?.details
+        details: stockCheck.details
       };
     } catch (error) {
       console.error('Error verificando stock del carrito:', error);

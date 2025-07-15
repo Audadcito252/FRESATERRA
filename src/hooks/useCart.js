@@ -27,7 +27,7 @@ const useCart = () => {
         total: 0,
         count: 0
       };
-    }const transformedItems = backendCart.items.map(item => {
+    }    const transformedItems = backendCart.items.map(item => {
       // Manejar diferentes estructuras posibles del backend
       const producto = item.producto || item.product;
       
@@ -51,7 +51,7 @@ const useCart = () => {
         quantity: parseInt(item.cantidad || item.quantity),
         cartItemId: item.id_carrito_items || item.id // ID del item en el carrito para operaciones
       };
-    });    // Calcular el total en el frontend basado en los items
+    });// Calcular el total en el frontend basado en los items
     const calculatedTotal = transformedItems.reduce((total, item) => {
       const itemTotal = item.product.price * item.quantity;
 
@@ -257,6 +257,52 @@ const useCart = () => {
     }
   }, [isAuthenticated, fetchCart]);
 
+  // Actualizar stock de productos en el carrito
+  const refreshCartStock = useCallback(async () => {
+    if (!isAuthenticated || !cart?.items?.length) {
+      return;
+    }
+
+    try {
+      // Obtener información actualizada de stock para cada producto
+      const stockPromises = cart.items.map(item => 
+        stockService.getStockInfo(item.product.id).catch(err => {
+          console.warn(`Error obteniendo stock para producto ${item.product.id}:`, err);
+          return null;
+        })
+      );
+
+      const stockResults = await Promise.all(stockPromises);
+      
+      // Actualizar el carrito con información de stock actualizada
+      const updatedItems = cart.items.map((item, index) => {
+        const stockResult = stockResults[index];
+        
+        if (stockResult?.data) {
+          return {
+            ...item,
+            product: {
+              ...item.product,
+              en_stock: stockResult.data.en_stock,
+              cantidad_disponible: stockResult.data.cantidad_disponible,
+              inStock: stockResult.data.en_stock,
+              stock: stockResult.data.cantidad_disponible || 0
+            }
+          };
+        }
+        
+        return item;
+      });
+      
+      setCart(prev => ({
+        ...prev,
+        items: updatedItems
+      }));
+    } catch (error) {
+      console.error('Error actualizando stock del carrito:', error);
+    }
+  }, [isAuthenticated, cart]);
+
   // Cargar carrito al montar o cuando cambie la autenticación
   useEffect(() => {
     fetchCart();
@@ -274,7 +320,8 @@ const useCart = () => {
     removeFromCart,
     clearCart,
     fetchCart,
-    checkCartStock
+    checkCartStock,
+    refreshCartStock
   };
 };
 
