@@ -98,7 +98,13 @@ const ProductsPage = () => {
           stock: product.cantidad_disponible || 0, // Usar la cantidad real disponible del inventario
           averageRating: product.comentarios_avg_calificacion ? parseFloat(product.comentarios_avg_calificacion) : 0,
           totalReviews: product.comentarios_count || 0,
-          reviews: []
+          reviews: [],
+          
+          // Datos de stock necesarios para stockService
+          en_stock: product.en_stock,
+          cantidad_disponible: product.cantidad_disponible,
+          inventario_info: product.inventario_info,
+          inventarios: product.inventarios
         };
       });
       

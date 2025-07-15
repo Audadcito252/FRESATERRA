@@ -50,13 +50,8 @@ const HomePage = () => {
           productsService.getCategories()
         ]);
         
-        console.log('Featured products response:', productsResponse);
-        console.log('Categories response:', categoriesResponse);
-        
         // Transformar datos del backend al formato del frontend
-        // Nota: /products/featured devuelve data directamente, no data.data como /products
         const productsData = productsResponse.data.data || productsResponse.data;
-        console.log('Products data to transform:', productsData);
         
         if (!Array.isArray(productsData)) {
           throw new Error('La respuesta no contiene un array de productos válido');
@@ -79,7 +74,13 @@ const HomePage = () => {
             stock: product.cantidad_disponible || 0, // Usar la cantidad real disponible del inventario
             averageRating: product.comentarios_avg_calificacion ? parseFloat(product.comentarios_avg_calificacion) : 0,
             totalReviews: product.comentarios_count || 0,
-            reviews: [] // Placeholder reviews array
+            reviews: [], // Placeholder reviews array
+            
+            // Datos de stock necesarios para stockService
+            en_stock: product.en_stock,
+            cantidad_disponible: product.cantidad_disponible,
+            inventario_info: product.inventario_info,
+            inventarios: product.inventarios
           };
         });
         
@@ -93,13 +94,8 @@ const HomePage = () => {
         setFeaturedProducts(transformedProducts);
         setBestSellers(transformedProducts.slice(0, 4)); // Usar los mismos productos como best sellers por ahora
         setCategories(transformedCategories);
-          } catch (err) {
-        console.error('Error fetching featured products:', err);
-        console.error('Error details:', {
-          message: err.message,
-          response: err.response?.data,
-          status: err.response?.status
-        });        setError('Error al cargar los datos');
+      } catch (err) {
+        setError('Error al cargar los datos');
         // En caso de error, usar arrays vacíos para que no se rompa la UI
         setFeaturedProducts([]);
         setBestSellers([]);

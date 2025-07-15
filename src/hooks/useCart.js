@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import cartService from '../services/cartService';
+import stockService from '../services/stockService';
 import toast from 'react-hot-toast';
 
 const useCart = () => {
@@ -10,7 +11,7 @@ const useCart = () => {
   const { isAuthenticated } = useAuth();
   // Transformar datos del backend al formato del frontend
   const transformCartData = useCallback((backendCart) => {
-    console.log('Transforming cart data:', backendCart); // Debug log
+
     
     if (!backendCart) {
       return {
@@ -20,7 +21,7 @@ const useCart = () => {
       };
     }    // Si no hay items o es un array vacío
     if (!backendCart.items || !Array.isArray(backendCart.items) || backendCart.items.length === 0) {
-      console.log('No items in cart, returning empty cart');
+
       return {
         items: [],
         total: 0,
@@ -39,7 +40,13 @@ const useCart = () => {
           images: [producto.url_imagen_completa || `/storage/${producto.url_imagen}` || producto.image],
           categoryId: producto.categorias_id_categoria || producto.category_id,
           inStock: producto.en_stock || false, // Usar el estado real del inventario
-          stock: producto.cantidad_disponible || 0 // Añadir información de stock
+          stock: producto.cantidad_disponible || 0, // Añadir información de stock
+          
+          // Datos de stock necesarios para stockService
+          en_stock: producto.en_stock,
+          cantidad_disponible: producto.cantidad_disponible,
+          inventario_info: producto.inventario_info,
+          inventarios: producto.inventarios
         },
         quantity: parseInt(item.cantidad || item.quantity),
         cartItemId: item.id_carrito_items || item.id // ID del item en el carrito para operaciones
@@ -47,11 +54,11 @@ const useCart = () => {
     });    // Calcular el total en el frontend basado en los items
     const calculatedTotal = transformedItems.reduce((total, item) => {
       const itemTotal = item.product.price * item.quantity;
-      console.log(`Item: ${item.product.name}, Price: ${item.product.price}, Quantity: ${item.quantity}, Subtotal: ${itemTotal}`);
+
       return total + itemTotal;
     }, 0);
 
-    console.log('Final calculated total:', calculatedTotal);
+
 
     return {
       items: transformedItems,
@@ -71,7 +78,7 @@ const useCart = () => {
 
     try {
       const response = await cartService.getCart();
-      console.log('Cart response:', response); // Debug log
+
       
       // Ajustar según la estructura real de la respuesta
       let cartData = null;
@@ -101,7 +108,7 @@ const useCart = () => {
       setLoading(false);
     }
   }, [isAuthenticated, transformCartData]);
-  // Agregar producto al carrito
+  // Agregar producto al carrito con verificación de stock
   const addToCart = useCallback(async (product, quantity = 1) => {
     if (!isAuthenticated) {
       toast.error('Debes iniciar sesión para agregar productos al carrito');
@@ -110,8 +117,25 @@ const useCart = () => {
 
     try {
       setLoading(true);
+      
+      // Verificar cantidad actual en el carrito para este producto
+      const currentCartItem = cart?.items?.find(item => item.id === product.id);
+      const currentCartQuantity = currentCartItem ? currentCartItem.quantity : 0;
+      
+      // Verificar stock antes de agregar
+      const stockCheck = await stockService.checkStockBeforeAddToCart(
+        product, 
+        quantity, 
+        currentCartQuantity
+      );
+      
+      if (!stockCheck.success) {
+        toast.error(stockCheck.message);
+        return;
+      }
+      
       const response = await cartService.addToCart(parseInt(product.id), quantity);
-      console.log('Add to cart response:', response); // Debug log
+
       
       await fetchCart(); // Recargar carrito
       toast.success(`${product.name} agregado al carrito`);
@@ -121,8 +145,8 @@ const useCart = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, fetchCart]);
-  // Actualizar cantidad
+  }, [isAuthenticated, fetchCart, cart]);
+  // Actualizar cantidad con verificación de stock
   const updateQuantity = useCallback(async (productId, newQuantity) => {
     if (!isAuthenticated) return;
 
@@ -131,11 +155,39 @@ const useCart = () => {
 
     try {
       setLoading(true);
+      
       if (newQuantity <= 0) {
         await cartService.removeFromCart(cartItem.cartItemId);
       } else {
+        // Verificar stock solo si estamos aumentando la cantidad
+        if (newQuantity > cartItem.quantity) {
+          // Usar información del producto si está disponible
+          const product = cartItem.product;
+          if (product && product.en_stock !== undefined && product.cantidad_disponible !== undefined) {
+            if (!product.en_stock || newQuantity > product.cantidad_disponible) {
+              const available = product.cantidad_disponible || 0;
+              toast.error(`Solo hay ${available} unidades disponibles`);
+              return;
+            }
+          } else {
+            // Fallback al endpoint si no hay información del producto
+            const stockCheck = await stockService.checkStock([{
+              producto_id: productId,
+              cantidad: newQuantity
+            }]);
+
+            const productStock = stockCheck.data?.details?.[0];
+            if (!productStock?.disponible) {
+              const available = productStock?.cantidad_disponible || 0;
+              toast.error(`Solo hay ${available} unidades disponibles`);
+              return;
+            }
+          }
+        }
+        
         await cartService.updateCartItem(cartItem.cartItemId, newQuantity);
       }
+      
       await fetchCart();
     } catch (err) {
       console.error('Error updating quantity:', err);
@@ -164,6 +216,25 @@ const useCart = () => {
       setLoading(false);
     }
   }, [isAuthenticated, cart, fetchCart]);
+  
+  // Verificar stock completo del carrito
+  const checkCartStock = useCallback(async () => {
+    if (!isAuthenticated || !cart?.items?.length) {
+      return { success: true, message: 'Carrito vacío' };
+    }
+
+    try {
+      const stockCheck = await stockService.checkCartStock(cart.items);
+      return stockCheck;
+    } catch (error) {
+      console.error('Error verificando stock del carrito:', error);
+      return { 
+        success: false, 
+        message: 'Error al verificar el stock del carrito' 
+      };
+    }
+  }, [isAuthenticated, cart]);
+  
   // Limpiar carrito (local y backend)
   const clearCart = useCallback(async () => {
     if (!isAuthenticated) {
@@ -175,7 +246,7 @@ const useCart = () => {
       setLoading(true);
       await cartService.clearCart();
       setCart({ items: [], total: 0, count: 0 });
-      console.log('Carrito vaciado exitosamente en frontend y backend');
+
     } catch (err) {
       console.error('Error vaciando el carrito:', err);
       toast.error(err.response?.data?.message || 'Error al vaciar el carrito');
@@ -202,7 +273,8 @@ const useCart = () => {
     updateQuantity,
     removeFromCart,
     clearCart,
-    fetchCart
+    fetchCart,
+    checkCartStock
   };
 };
 

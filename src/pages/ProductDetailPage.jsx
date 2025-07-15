@@ -4,6 +4,8 @@ import { useShoppingCart } from '../contexts/ShoppingCartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { reviewsService } from '../services/reviewsService';
 import { productsService } from '../services/productsService';
+import stockService from '../services/stockService';
+import StockAlert from '../components/StockAlert';
 import config from '../config/config';
 import ProductReview from '../components/ProductReview';
 import ReviewsList from '../components/ReviewsList';
@@ -95,6 +97,13 @@ const ProductDetailPage = () => {
       stock: backendProduct.cantidad_disponible || 0, // Usar la cantidad real disponible del inventario
       featured: false, // Valor por defecto
       inStock: backendProduct.en_stock || false, // Usar el estado real del inventario
+      
+      // Datos de stock del backend
+      en_stock: backendProduct.en_stock,
+      cantidad_disponible: backendProduct.cantidad_disponible,
+      inventario_info: backendProduct.inventario_info,
+      inventarios: backendProduct.inventarios,
+      
       weight: backendProduct.peso,
       specifications: specifications,
       averageRating: backendProduct.comentarios_avg_calificacion || 0,
@@ -106,7 +115,7 @@ const ProductDetailPage = () => {
   // Cargar producto desde el backend
   const loadProduct = async () => {
     if (!id) {
-      console.log('❌ No hay ID de producto');
+
       return;
     }
     
@@ -114,16 +123,16 @@ const ProductDetailPage = () => {
       setLoading(true);
       setError(null);
       
-      console.log('🔍 Cargando producto con ID:', id);
+
       const response = await productsService.getProduct(id);
-      console.log('📦 Respuesta del backend:', response);
+
       
       if (response?.success && response?.data) {
         const productData = response.data;
-        console.log('✅ Producto encontrado:', productData);
+
         
         const transformedProduct = transformProductData(productData);
-        console.log('🔄 Producto transformado:', transformedProduct);
+
         
         setProduct(transformedProduct);
         setSelectedImage(transformedProduct.images[0]);
@@ -133,7 +142,7 @@ const ProductDetailPage = () => {
           loadRelatedProducts(transformedProduct.categoryId);
         }
       } else {
-        console.log('❌ Respuesta inválida del backend:', response);
+
         setError('Producto no encontrado');
       }
     } catch (error) {
@@ -172,7 +181,7 @@ const ProductDetailPage = () => {
     
     setIsLoadingReviews(true);
     try {
-      console.log('Cargando reseñas del producto:', product.id);
+
       const result = await reviewsService.getProductReviews(product.id);
       
       if (result.success && result.data) {
@@ -198,7 +207,7 @@ const ProductDetailPage = () => {
     if (!product || !user) return;
     
     try {
-      console.log('Cargando reseña del usuario para producto:', product.id);
+
       const result = await reviewsService.getUserReview(product.id);
       
       if (result.success) {
@@ -302,7 +311,8 @@ const ProductDetailPage = () => {
   };
 
   const handleQuantityChange = (e) => {
-    const value = Math.max(1, Math.min(product.stock, Number(e.target.value)));
+    const maxStock = product.cantidad_disponible || product.inventario_info?.cantidad_disponible || product.stock;
+    const value = Math.max(1, Math.min(maxStock, Number(e.target.value)));
     setQuantity(value);
   };  // Manejador para enviar una nueva reseña o actualizar una existente
   const handleReviewSubmit = async (reviewData, isEditing) => {
@@ -431,22 +441,31 @@ const ProductDetailPage = () => {
                 <span className="text-2xl font-bold text-gray-800">S/ {product.price.toFixed(2)}</span>
               )}
             </div>
-            <div className="mb-2">
-              <span className="font-semibold">Stock:</span> {product.stock > 0 ? product.stock : 'Out of stock'}
+            
+            {/* Alerta de stock */}
+            <div className="mb-4">
+              <StockAlert product={product} />
+              <div className="mt-2 text-sm text-gray-600">
+                {product.en_stock 
+                  ? `${product.cantidad_disponible || 'N/A'} unidades disponibles`
+                  : 'Producto agotado'
+                }
+              </div>
             </div>
+            
             <div className="mb-2 flex items-center gap-2">
               <span className="font-semibold">Cantidad:</span>
               <input
                 type="number"
                 min={1}
-                max={product.stock}
+                max={product.cantidad_disponible || product.stock}
                 value={quantity}
                 onChange={handleQuantityChange}
                 className="w-20 border rounded px-2 py-1 text-center"
-                disabled={product.stock === 0}
+                disabled={!product.en_stock}
               />
             </div>
-            <div className="mb-2">
+            <div className="mb-4">
               <span className="font-semibold text-lg text-red-700">Total:</span>{' '}
               <span className="text-2xl font-bold text-red-600">
                 {product.salePrice
@@ -454,12 +473,16 @@ const ProductDetailPage = () => {
                   : `S/ ${(product.price * quantity).toFixed(2)}`}
               </span>
             </div>
+            
             <button
               onClick={handleAddToCart}
-              disabled={product.stock === 0}
-              className="bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-3 rounded-lg transition-colors disabled:opacity-50"
+              disabled={!product.en_stock}
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Agregar al carrito
+              {!product.en_stock
+                ? 'Agotado' 
+                : 'Agregar al carrito'
+              }
             </button>
           </div>
         </div>

@@ -50,6 +50,16 @@ export const productsService = {
   getProductStats: async () => {
     return await api.get('/products/stats');
   },
+
+  // Verificar stock de múltiples productos
+  checkStock: async (items) => {
+    return await api.post('/products/check-stock', { items });
+  },
+
+  // Obtener información de stock de un producto específico
+  getStockInfo: async (productId) => {
+    return await api.get(`/products/${productId}/stock`);
+  },
 };
 
 // Servicio para el carrito

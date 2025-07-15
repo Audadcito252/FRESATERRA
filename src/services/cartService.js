@@ -4,7 +4,7 @@ const cartService = {  // Obtener carrito del usuario
   getCart: async () => {
     try {
       const response = await api.get('/cart');
-      console.log('Cart service response:', response); // Debug log
+
       return response;
     } catch (error) {
       console.error('Error obteniendo carrito:', error);
@@ -22,7 +22,7 @@ const cartService = {  // Obtener carrito del usuario
         producto_id: productId,
         cantidad: quantity,
       });
-      console.log('Add to cart response:', response); // Debug log
+
       return response;
     } catch (error) {
       console.error('Error agregando al carrito:', error);

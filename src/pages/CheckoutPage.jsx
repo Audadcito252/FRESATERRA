@@ -7,11 +7,12 @@ import api from '../services/api';
 import addressesService from '../services/addressesService';
 import ordersService from '../services/ordersService';
 import paymentsService from '../services/paymentsService';
+import stockService from '../services/stockService';
 import useAddresses from '../hooks/useAddresses';
 import toast from 'react-hot-toast';
 
 const CheckoutPage = () => {
-  const { cartItems, cartTotal, clearCart } = useShoppingCart();
+  const { cartItems, cartTotal, clearCart, checkCartStock } = useShoppingCart();
   const { user, updateProfile, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   
@@ -245,7 +246,26 @@ const CheckoutPage = () => {
             }
           };
         }        console.log('Creando pedido con datos:', checkoutData);
-          // Crear el pedido en la base de datos
+        
+        // 🔧 VERIFICAR STOCK ANTES DE CREAR EL PEDIDO
+        console.log('Verificando stock antes de crear el pedido...');
+        const stockCheck = await checkCartStock();
+        
+        if (!stockCheck.success) {
+          toast.error(stockCheck.message);
+          if (stockCheck.unavailableItems && stockCheck.unavailableItems.length > 0) {
+            // Mostrar detalles de productos sin stock
+            stockCheck.unavailableItems.forEach(item => {
+              toast.error(`${item.producto_nombre}: Solo ${item.cantidad_disponible} disponibles`);
+            });
+          }
+          setIsSubmitting(false);
+          return;
+        }
+        
+        console.log('Stock verificado correctamente, procediendo con el pedido...');
+        
+        // Crear el pedido en la base de datos
         const orderResponse = await ordersService.createOrder(checkoutData);
         console.log('Respuesta del servidor:', orderResponse);
           if (orderResponse && orderResponse.order_id) {

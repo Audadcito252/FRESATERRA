@@ -1,12 +1,33 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useShoppingCart } from '../contexts/ShoppingCartContext';
-import { X, Truck } from 'lucide-react';
+import { X, Truck, AlertTriangle } from 'lucide-react';
+import stockService from '../services/stockService';
 import toast from 'react-hot-toast';
 
 const QuickCart = ({ open, onClose }) => {
-  const { cartItems, cartTotal, updateQuantity, removeFromCart, clearCart, loading: cartLoading } = useShoppingCart();
+  const { cartItems, cartTotal, updateQuantity, removeFromCart, clearCart, loading: cartLoading, checkCartStock } = useShoppingCart();
   const [loading, setLoading] = useState(false);
+  const [stockIssues, setStockIssues] = useState([]);
+  
+  // Verificar stock cuando se abre el carrito
+  useEffect(() => {
+    if (open && cartItems.length > 0) {
+      const verifyStock = async () => {
+        try {
+          const stockCheck = await checkCartStock();
+          if (!stockCheck.success && stockCheck.unavailableItems) {
+            setStockIssues(stockCheck.unavailableItems);
+          } else {
+            setStockIssues([]);
+          }
+        } catch (error) {
+          console.error('Error verificando stock:', error);
+        }
+      };
+      verifyStock();
+    }
+  }, [open, cartItems, checkCartStock]);
   
   // Verificar si aplica la oferta de envío gratis (total >= S/ 30)
   const FREE_SHIPPING_THRESHOLD = 30;
@@ -50,44 +71,58 @@ const QuickCart = ({ open, onClose }) => {
           ) : cartItems.length === 0 ? (
             <p className="text-gray-500 text-center mt-8">Tu carrito está vacío</p>
           ) : (
-            cartItems.map(({ id, product, quantity }) => (
-              <div key={id} className="flex items-center gap-3 border-b pb-3">
-                <img src={product.images[0]} alt={product.name} className="w-16 h-16 object-cover rounded-md border" />
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 text-sm">{product.name}</h3>
-                  <p className="text-xs text-gray-500">S/ {product.price.toFixed(2)} c/u</p>
-                  <div className="flex items-center gap-2 mt-1">
+            cartItems.map(({ id, product, quantity }) => {
+              // Verificar si este producto tiene problemas de stock
+              const stockIssue = stockIssues.find(issue => issue.producto_id === id);
+              
+              return (
+                <div key={id} className="flex items-center gap-3 border-b pb-3">
+                  <img src={product.images[0]} alt={product.name} className="w-16 h-16 object-cover rounded-md border" />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900 text-sm">{product.name}</h3>
+                    <p className="text-xs text-gray-500">S/ {product.price.toFixed(2)} c/u</p>
+                    
+                    {/* Alerta de stock */}
+                    {stockIssue && (
+                      <div className="flex items-center gap-1 text-xs text-red-600 mt-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>Solo {stockIssue.cantidad_disponible} disponibles</span>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center gap-2 mt-1">
+                      <button 
+                        onClick={() => updateQuantity(id, quantity - 1)} 
+                        className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                        disabled={loading}
+                      >
+                        -
+                      </button>
+                      <span className="px-2 text-sm">{quantity}</span>
+                      <button 
+                        onClick={() => updateQuantity(id, quantity + 1)} 
+                        className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                        disabled={loading}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-right min-w-[60px]">
+                    <span className="font-bold text-gray-800 text-sm">
+                      S/ {(product.price * quantity).toFixed(2)}
+                    </span>
                     <button 
-                      onClick={() => updateQuantity(id, quantity - 1)} 
-                      className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                      onClick={() => removeFromCart(id)} 
+                      className="block text-xs text-red-600 hover:underline mt-1"
                       disabled={loading}
                     >
-                      -
-                    </button>
-                    <span className="px-2 text-sm">{quantity}</span>
-                    <button 
-                      onClick={() => updateQuantity(id, quantity + 1)} 
-                      className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
-                      disabled={loading}
-                    >
-                      +
+                      Eliminar
                     </button>
                   </div>
                 </div>
-                <div className="text-right min-w-[60px]">
-                  <span className="font-bold text-gray-800 text-sm">
-                    S/ {(product.price * quantity).toFixed(2)}
-                  </span>
-                  <button 
-                    onClick={() => removeFromCart(id)} 
-                    className="block text-xs text-red-600 hover:underline mt-1"
-                    disabled={loading}
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
         <div className="p-4 border-t">
@@ -131,6 +166,22 @@ const QuickCart = ({ open, onClose }) => {
               Vaciar carrito
             </button>
           )}
+          
+          {/* Alerta general de stock */}
+          {stockIssues.length > 0 && (
+            <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-md">
+              <div className="flex items-center gap-2 text-red-600 text-xs">
+                <AlertTriangle className="w-4 h-4" />
+                <span className="font-medium">
+                  {stockIssues.length === 1 
+                    ? 'Un producto tiene stock limitado' 
+                    : `${stockIssues.length} productos tienen stock limitado`
+                  }
+                </span>
+              </div>
+            </div>
+          )}
+          
           <Link
             to="/cart"
             className="block w-full text-center py-2 rounded-lg bg-gray-900 text-white font-semibold hover:bg-gray-700 transition-colors"
@@ -140,10 +191,14 @@ const QuickCart = ({ open, onClose }) => {
           </Link>
           <Link
             to="/checkout"
-            className="block w-full text-center py-2 mt-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors"
+            className={`block w-full text-center py-2 mt-2 rounded-lg font-semibold transition-colors ${
+              stockIssues.length > 0 
+                ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                : 'bg-red-600 hover:bg-red-700 text-white'
+            }`}
             onClick={onClose}
           >
-            Finalizar compra
+            {stockIssues.length > 0 ? 'Revisar y finalizar' : 'Finalizar compra'}
           </Link>
         </div>
       </aside>
