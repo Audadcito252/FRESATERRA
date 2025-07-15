@@ -93,9 +93,9 @@ const ProductsPage = () => {
           images: [imageUrl],
           categoryId: product.categorias_id_categoria,
           featured: product.destacado || false,
-          inStock: product.estado === 'activo',
+          inStock: product.en_stock || false, // Usar el estado real del inventario
           weight: product.peso,
-          stock: 100,
+          stock: product.cantidad_disponible || 0, // Usar la cantidad real disponible del inventario
           averageRating: product.comentarios_avg_calificacion ? parseFloat(product.comentarios_avg_calificacion) : 0,
           totalReviews: product.comentarios_count || 0,
           reviews: []

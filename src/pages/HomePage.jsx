@@ -74,12 +74,14 @@ const HomePage = () => {
             images: [imageUrl],
             categoryId: product.categorias_id_categoria,
             featured: true, // Los productos destacados son featured por definición
-            inStock: product.estado === 'activo',
-            weight: product.peso,            stock: 100, // Placeholder since backend doesn't track stock yet
+            inStock: product.en_stock || false, // Usar el estado real del inventario
+            weight: product.peso,
+            stock: product.cantidad_disponible || 0, // Usar la cantidad real disponible del inventario
             averageRating: product.comentarios_avg_calificacion ? parseFloat(product.comentarios_avg_calificacion) : 0,
             totalReviews: product.comentarios_count || 0,
             reviews: [] // Placeholder reviews array
-          };        });
+          };
+        });
         
         // Transformar categorías del backend
         const transformedCategories = categoriesResponse.data.map(category => ({

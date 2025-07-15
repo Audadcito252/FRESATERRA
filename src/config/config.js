@@ -4,7 +4,7 @@
 class Config {
   constructor() {
     // URLs base
-    this.apiUrl = import.meta.env.VITE_API_URL || 'http://api.fresaterra.shop:8000/api/v1';
+    this.apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
     this.frontendUrl = import.meta.env.VITE_FRONTEND_URL || 'http://localhost:5173';
     
     // Entorno de ejecución

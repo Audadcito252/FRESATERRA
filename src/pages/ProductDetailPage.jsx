@@ -59,7 +59,10 @@ const ProductDetailPage = () => {
     }
     
     if (backendProduct.estado) {
-      specifications['Estado'] = backendProduct.estado === 'activo' ? 'Disponible' : 'No disponible';
+      // Usar información del inventario si está disponible, sino usar el estado del producto
+      const isAvailable = backendProduct.en_stock !== undefined ? backendProduct.en_stock : backendProduct.estado === 'activo';
+      const stockAmount = backendProduct.cantidad_disponible || 0;
+      specifications['Estado'] = isAvailable && stockAmount > 0 ? `Disponible (${stockAmount} unidades)` : 'Agotado';
     }
     
     if (backendProduct.categoria?.nombre) {
@@ -89,9 +92,9 @@ const ProductDetailPage = () => {
       ],
       categoryId: backendProduct.categorias_id_categoria?.toString() || '1',
       categoryName: backendProduct.categoria?.nombre || 'Sin categoría',
-      stock: 100, // Valor por defecto hasta implementar inventario
+      stock: backendProduct.cantidad_disponible || 0, // Usar la cantidad real disponible del inventario
       featured: false, // Valor por defecto
-      inStock: backendProduct.estado === 'activo',
+      inStock: backendProduct.en_stock || false, // Usar el estado real del inventario
       weight: backendProduct.peso,
       specifications: specifications,
       averageRating: backendProduct.comentarios_avg_calificacion || 0,

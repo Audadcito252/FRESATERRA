@@ -38,7 +38,8 @@ const useCart = () => {
           price: parseFloat(producto.precio || producto.price),
           images: [producto.url_imagen_completa || `/storage/${producto.url_imagen}` || producto.image],
           categoryId: producto.categorias_id_categoria || producto.category_id,
-          inStock: producto.estado === 'activo' || producto.status === 'active' || true
+          inStock: producto.en_stock || false, // Usar el estado real del inventario
+          stock: producto.cantidad_disponible || 0 // Añadir información de stock
         },
         quantity: parseInt(item.cantidad || item.quantity),
         cartItemId: item.id_carrito_items || item.id // ID del item en el carrito para operaciones
