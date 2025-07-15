@@ -289,23 +289,7 @@ const ContactPage = () => {
                                     </div>
 
                                     <div className="flex flex-col sm:flex-row gap-4 mt-6">
-                                        <button
-                                            type="submit"
-                                            disabled={isSubmitting}
-                                            className="w-full sm:w-1/2 bg-red-600 text-white py-3 px-6 rounded-lg hover:bg-red-700 focus:ring-4 focus:ring-red-200 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                                        >
-                                            {isSubmitting ? (
-                                                <>
-                                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                                                    Enviando...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Send size={18} className="mr-2" />
-                                                    Enviar mensaje
-                                                </>
-                                            )}
-                                        </button>
+                                       
                                         <button
                                             type="button"
                                             className="w-full sm:w-1/2 inline-flex items-center justify-center py-3 px-6 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors text-base shadow-sm"
