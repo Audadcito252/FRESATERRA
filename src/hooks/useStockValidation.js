@@ -89,7 +89,7 @@ const useStockValidation = () => {
     if (availableStock <= 3) {
       return {
         status: 'low-stock',
-        text: `Últimas ${availableStock} unidades`,
+        text: `Stock limitado`,
         color: 'text-orange-600',
         bgColor: 'bg-orange-100',
         available: availableStock

@@ -472,16 +472,16 @@ const ProductDetailPage = () => {
               <StockAlert product={product} />
               {(() => {
                 const stockStatus = getStockStatus(product);
-                return (
-                  <div className={`mt-2 px-3 py-2 rounded-md text-sm font-medium ${stockStatus.bgColor} ${stockStatus.color}`}>
-                    {stockStatus.text}
-                    {stockStatus.available > 0 && (
-                      <span className="ml-2 text-xs opacity-75">
-                        ({stockStatus.available} disponibles)
-                      </span>
-                    )}
-                  </div>
-                );
+                // Solo mostrar información adicional si es relevante y no redundante
+                if (stockStatus.status === 'in-stock') {
+                  return (
+                    <div className={`mt-2 px-3 py-2 rounded-md text-sm font-medium ${stockStatus.bgColor} ${stockStatus.color}`}>
+                      {stockStatus.text}
+                    </div>
+                  );
+                }
+                // Para stock bajo o agotado, StockAlert ya maneja el mensaje principal
+                return null;
               })()}
             </div>
             
