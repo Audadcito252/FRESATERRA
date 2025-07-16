@@ -9,11 +9,14 @@ import StockAlert from '../components/StockAlert';
 import config from '../config/config';
 import ProductReview from '../components/ProductReview';
 import ReviewsList from '../components/ReviewsList';
+import toast from 'react-hot-toast';
+import useStockValidation from '../hooks/useStockValidation';
 
 const ProductDetailPage = () => {
   const { id } = useParams();
-  const { addToCart } = useShoppingCart();
+  const { addToCart, addingToCart, cart } = useShoppingCart();
   const { user } = useAuth();
+  const { validateAddToCart, getStockStatus } = useStockValidation();
   
   // Estados para el producto
   const [product, setProduct] = useState(null);
@@ -306,12 +309,34 @@ const ProductDetailPage = () => {
     );
   }
 
-  const handleAddToCart = () => {
-    addToCart(product, quantity);
+  const handleAddToCart = async () => {
+    if (!user) {
+      toast.error('Debes iniciar sesión para agregar productos al carrito');
+      return;
+    }
+
+    // Usar el hook de validación para verificaciones inmediatas
+    const validation = validateAddToCart(product, quantity);
+    
+    if (!validation.isValid) {
+      toast.error(validation.message);
+      // Ajustar la cantidad al máximo permitido si es posible
+      if (validation.maxAllowed > 0) {
+        setQuantity(validation.maxAllowed);
+      }
+      return;
+    }
+
+    const result = await addToCart(product, quantity);
+    if (result && result.success) {
+      // Opcional: resetear cantidad a 1 después de agregar exitosamente
+      setQuantity(1);
+    }
   };
 
   const handleQuantityChange = (e) => {
-    const maxStock = product.cantidad_disponible || product.inventario_info?.cantidad_disponible || product.stock;
+    const validation = validateAddToCart(product, 1);
+    const maxStock = validation.maxAllowed + (cart?.items?.find(item => item.id === product.id)?.quantity || 0);
     const value = Math.max(1, Math.min(maxStock, Number(e.target.value)));
     setQuantity(value);
   };  // Manejador para enviar una nueva reseña o actualizar una existente
@@ -442,15 +467,22 @@ const ProductDetailPage = () => {
               )}
             </div>
             
-            {/* Alerta de stock */}
+            {/* Información de stock mejorada */}
             <div className="mb-4">
               <StockAlert product={product} />
-              <div className="mt-2 text-sm text-gray-600">
-                {product.en_stock 
-                  ? `${product.cantidad_disponible || 'N/A'} unidades disponibles`
-                  : 'Producto agotado'
-                }
-              </div>
+              {(() => {
+                const stockStatus = getStockStatus(product);
+                return (
+                  <div className={`mt-2 px-3 py-2 rounded-md text-sm font-medium ${stockStatus.bgColor} ${stockStatus.color}`}>
+                    {stockStatus.text}
+                    {stockStatus.available > 0 && (
+                      <span className="ml-2 text-xs opacity-75">
+                        ({stockStatus.available} disponibles)
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             
             <div className="mb-2 flex items-center gap-2">
@@ -476,13 +508,19 @@ const ProductDetailPage = () => {
             
             <button
               onClick={handleAddToCart}
-              disabled={!product.en_stock}
-              className="w-full bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!product.en_stock || addingToCart.has(product.id)}
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
-              {!product.en_stock
-                ? 'Agotado' 
-                : 'Agregar al carrito'
-              }
+              {addingToCart.has(product.id) ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Agregando...
+                </>
+              ) : !product.en_stock ? (
+                'Agotado' 
+              ) : (
+                'Agregar al carrito'
+              )}
             </button>
           </div>
         </div>

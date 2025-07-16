@@ -4,32 +4,38 @@ import { Star, ShoppingCart, MessageSquare } from 'lucide-react';
 import { useShoppingCart } from '../contexts/ShoppingCartContext';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import useStockValidation from '../hooks/useStockValidation';
 
 const ProductCard = ({ product }) => {
-  const { addToCart } = useShoppingCart();
+  const { addToCart, addingToCart } = useShoppingCart();
   const { user } = useAuth();
+  const { validateAddToCart, getStockStatus } = useStockValidation();
   const [isHovered, setIsHovered] = useState(false);
   
   // Verifica si el usuario ha dejado una reseña para este producto
   const hasUserReview = user && product.reviews && product.reviews.some(review => review.userId === user.id);
 
-  // Verificar si el producto está disponible
-  const isProductAllowed = product.inStock;
-  const handleAddToCart = (e) => {
+  // Usar el hook de validación para verificar disponibilidad
+  const stockStatus = getStockStatus(product);
+  const isProductAllowed = stockStatus.status !== 'out-of-stock';
+  
+  const handleAddToCart = async (e) => {
     e.preventDefault();
     e.stopPropagation();
     
-    if (!isProductAllowed) {
-      toast.error('Este producto no está disponible para compra en este momento');
-      return;
-    }
-
     if (!user) {
       toast.error('Debes iniciar sesión para agregar productos al carrito');
       return;
     }
 
-    addToCart(product, 1);
+    // Usar validación del hook
+    const validation = validateAddToCart(product, 1);
+    if (!validation.isValid) {
+      toast.error(validation.message);
+      return;
+    }
+
+    const result = await addToCart(product, 1);
   };
 
   // Calculate discount percentage if there's a sale price
@@ -95,15 +101,24 @@ const ProductCard = ({ product }) => {
           }`}>
             <button
               onClick={handleAddToCart}
-              disabled={!isProductAllowed}
+              disabled={!isProductAllowed || addingToCart.has(product.id)}
               className={`w-full flex items-center justify-center py-2 px-4 rounded-md transition-colors ${
-                isProductAllowed 
+                isProductAllowed && !addingToCart.has(product.id)
                   ? 'bg-red-600 hover:bg-red-700 text-white' 
                   : 'bg-gray-400 cursor-not-allowed text-gray-200'
               }`}
             >
-              <ShoppingCart size={16} className="mr-2" />
-              {isProductAllowed ? 'Agregar al carrito' : 'No disponible'}
+              {addingToCart.has(product.id) ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Agregando...
+                </>
+              ) : (
+                <>
+                  <ShoppingCart size={16} className="mr-2" />
+                  {isProductAllowed ? 'Agregar al carrito' : 'No disponible'}
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -147,15 +162,9 @@ const ProductCard = ({ product }) => {
           </div>
             {/* Stock Status */}
           <div className="mt-2 text-sm">
-            {!isProductAllowed ? (
-              <span className="text-red-600 font-medium">Producto no disponible</span>
-            ) : (product.stock || 0) > 10 ? (
-              <span className="text-green-600">En stock</span>
-            ) : (product.stock || 0) > 0 ? (
-              <span className="text-orange-500">Bajo Stock ({product.stock || 0} cantidad)</span>
-            ) : (
-              <span className="text-red-600">Sin stock</span>
-            )}
+            <span className={`font-medium ${stockStatus.color}`}>
+              {stockStatus.text}
+            </span>
           </div>
         </div>
       </Link>

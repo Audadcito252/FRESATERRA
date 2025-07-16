@@ -3,11 +3,13 @@ import { useAuth } from '../contexts/AuthContext';
 import cartService from '../services/cartService';
 import stockService from '../services/stockService';
 import toast from 'react-hot-toast';
+import { showStockToast } from '../utils/stockToast';
 
 const useCart = () => {
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [addingToCart, setAddingToCart] = useState(new Set());
   const { isAuthenticated } = useAuth();
   // Transformar datos del backend al formato del frontend
   const transformCartData = useCallback((backendCart) => {
@@ -108,21 +110,59 @@ const useCart = () => {
       setLoading(false);
     }
   }, [isAuthenticated, transformCartData]);
-  // Agregar producto al carrito con verificación de stock
+
+  // Agregar producto al carrito con verificación de stock inmediata
   const addToCart = useCallback(async (product, quantity = 1) => {
     if (!isAuthenticated) {
-      toast.error('Debes iniciar sesión para agregar productos al carrito');
-      return;
+      showStockToast.loginRequired();
+      return { success: false };
+    }
+
+    // Prevenir múltiples adiciones simultáneas del mismo producto
+    if (addingToCart.has(product.id)) {
+      showStockToast.alreadyAdding();
+      return { success: false };
     }
 
     try {
+      // Marcar el producto como "agregándose"
+      setAddingToCart(prev => new Set([...prev, product.id]));
       setLoading(true);
       
       // Verificar cantidad actual en el carrito para este producto
       const currentCartItem = cart?.items?.find(item => item.id === product.id);
       const currentCartQuantity = currentCartItem ? currentCartItem.quantity : 0;
+      const totalQuantityRequested = currentCartQuantity + quantity;
       
-      // Verificar stock antes de agregar
+      // VALIDACIÓN INMEDIATA EN FRONTEND usando datos disponibles
+      const availableStock = product.cantidad_disponible || product.stock || 0;
+      const isInStock = product.en_stock !== undefined ? product.en_stock : product.inStock;
+      
+      // Verificaciones inmediatas
+      if (!isInStock) {
+        showStockToast.outOfStock(product.name);
+        return { success: false };
+      }
+      
+      if (availableStock <= 0) {
+        showStockToast.outOfStock(product.name);
+        return { success: false };
+      }
+      
+      if (totalQuantityRequested > availableStock) {
+        const remaining = availableStock - currentCartQuantity;
+        if (remaining <= 0) {
+          showStockToast.stockLimited('Ya tienes el máximo disponible en tu carrito', availableStock);
+        } else {
+          showStockToast.stockLimited(
+            `Solo puedes agregar ${remaining} unidad${remaining !== 1 ? 'es' : ''} más. Stock disponible: ${availableStock}`,
+            remaining
+          );
+        }
+        return { success: false };
+      }
+      
+      // Verificación adicional con el backend (por seguridad)
       const stockCheck = await stockService.checkStockBeforeAddToCart(
         product, 
         quantity, 
@@ -131,21 +171,29 @@ const useCart = () => {
       
       if (!stockCheck.success) {
         toast.error(stockCheck.message);
-        return;
+        return { success: false };
       }
       
       const response = await cartService.addToCart(parseInt(product.id), quantity);
 
       
       await fetchCart(); // Recargar carrito
-      toast.success(`${product.name} agregado al carrito`);
+      showStockToast.success(product.name, quantity);
+      return { success: true };
     } catch (err) {
       console.error('Error adding to cart:', err);
       toast.error(err.response?.data?.message || 'Error al agregar producto al carrito');
+      return { success: false };
     } finally {
       setLoading(false);
+      // Quitar el producto del estado "agregándose"
+      setAddingToCart(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(product.id);
+        return newSet;
+      });
     }
-  }, [isAuthenticated, fetchCart, cart]);
+  }, [isAuthenticated, fetchCart, cart, addingToCart]);
   // Actualizar cantidad con verificación de stock
   const updateQuantity = useCallback(async (productId, newQuantity) => {
     if (!isAuthenticated) return;
@@ -315,6 +363,7 @@ const useCart = () => {
     cartCount: cart?.count || 0,
     loading,
     error,
+    addingToCart,
     addToCart,
     updateQuantity,
     removeFromCart,

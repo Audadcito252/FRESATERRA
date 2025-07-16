@@ -6,7 +6,7 @@ import stockService from '../services/stockService';
 import toast from 'react-hot-toast';
 
 const QuickCart = ({ open, onClose }) => {
-  const { cartItems, cartTotal, updateQuantity, removeFromCart, clearCart, loading: cartLoading, checkCartStock } = useShoppingCart();
+  const { cartItems, cartTotal, updateQuantity, removeFromCart, clearCart, loading: cartLoading, checkCartStock, addingToCart } = useShoppingCart();
   const [loading, setLoading] = useState(false);
   const [stockIssues, setStockIssues] = useState([]);
   
@@ -93,16 +93,16 @@ const QuickCart = ({ open, onClose }) => {
                     <div className="flex items-center gap-2 mt-1">
                       <button 
                         onClick={() => updateQuantity(id, quantity - 1)} 
-                        className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
-                        disabled={loading}
+                        className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm disabled:opacity-50"
+                        disabled={loading || quantity <= 1}
                       >
                         -
                       </button>
                       <span className="px-2 text-sm">{quantity}</span>
                       <button 
                         onClick={() => updateQuantity(id, quantity + 1)} 
-                        className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
-                        disabled={loading}
+                        className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm disabled:opacity-50"
+                        disabled={loading || (stockIssue && quantity >= stockIssue.cantidad_disponible)}
                       >
                         +
                       </button>
@@ -189,8 +189,10 @@ const QuickCart = ({ open, onClose }) => {
           >
             Ver carrito completo
           </Link>
+          
+          {/* Botón inteligente de checkout */}
           <Link
-            to="/checkout"
+            to={stockIssues.length > 0 ? "/cart" : "/checkout"}
             className={`block w-full text-center py-2 mt-2 rounded-lg font-semibold transition-colors ${
               stockIssues.length > 0 
                 ? 'bg-orange-600 hover:bg-orange-700 text-white' 
@@ -198,7 +200,7 @@ const QuickCart = ({ open, onClose }) => {
             }`}
             onClick={onClose}
           >
-            {stockIssues.length > 0 ? 'Revisar y finalizar' : 'Finalizar compra'}
+            {stockIssues.length > 0 ? 'Revisar problemas de stock' : 'Finalizar compra'}
           </Link>
         </div>
       </aside>
