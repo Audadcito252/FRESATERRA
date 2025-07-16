@@ -129,6 +129,32 @@ const ResumeOrderPage = () => {
     }
   };
   
+  // Función helper para construir URL de imagen correcta
+  const getImageUrl = (item) => {
+    // Prioridad: snapshot -> producto actual -> placeholder
+    let imageUrl = item.producto_imagen_snapshot || item.producto?.url_imagen;
+    
+    if (!imageUrl) {
+      return '/img/placeholder.jpg';
+    }
+    
+    // Si ya es una URL completa, usarla tal como está
+    if (imageUrl.startsWith('http')) {
+      return imageUrl;
+    }
+    
+    // Usar la URL base de la API (removiendo /api/v1)
+    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:8000';
+    
+    // Si es una ruta relativa, construir URL completa del backend
+    if (imageUrl.startsWith('/storage/') || imageUrl.startsWith('storage/')) {
+      return `${baseUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+    }
+    
+    // Si no tiene prefijo de storage, agregarlo
+    return `${baseUrl}/storage/${imageUrl.replace(/^\/+/, '')}`;
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -156,7 +182,9 @@ const ResumeOrderPage = () => {
   return (
     <div className="container mx-auto px-4 py-12 pt-24">
       <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Completar pago del pedido #{orderId}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">
+          Completar pago del {order?.codigo_pedido || `pedido #${orderId}`}
+        </h1>
         
         <div className="bg-yellow-50 p-4 rounded-lg mb-6">
           <p className="text-yellow-800">
@@ -183,7 +211,7 @@ const ResumeOrderPage = () => {
                         <div className="flex items-center gap-3">
                           {/* Imagen del producto */}
                           <img
-                            src={item.producto_imagen_snapshot || item.producto?.url_imagen || '/img/placeholder.jpg'}
+                            src={getImageUrl(item)}
                             alt={item.producto_nombre_snapshot || item.producto?.nombre || 'Producto'}
                             className="w-12 h-12 object-cover rounded-lg bg-gray-100"
                             onError={(e) => {

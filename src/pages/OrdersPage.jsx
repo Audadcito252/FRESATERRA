@@ -37,12 +37,38 @@ function OrdersPage() {
 
   // 🔧 FUNCIONES HELPER PARA SNAPSHOTS
   
+  // Función helper para construir URL de imagen correcta
+  const getImageUrl = (pedidoItem) => {
+    // Prioridad: snapshot -> producto actual -> placeholder
+    let imageUrl = pedidoItem.producto_imagen_snapshot || pedidoItem.producto?.url_imagen;
+    
+    if (!imageUrl) {
+      return '/img/placeholder.jpg';
+    }
+    
+    // Si ya es una URL completa, usarla tal como está
+    if (imageUrl.startsWith('http')) {
+      return imageUrl;
+    }
+    
+    // Usar la URL base de la API (removiendo /api/v1)
+    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:8000';
+    
+    // Si es una ruta relativa, construir URL completa del backend
+    if (imageUrl.startsWith('/storage/') || imageUrl.startsWith('storage/')) {
+      return `${baseUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+    }
+    
+    // Si no tiene prefijo de storage, agregarlo
+    return `${baseUrl}/storage/${imageUrl.replace(/^\/+/, '')}`;
+  };
+
   // Función para obtener datos del producto (snapshot o actual)
   const getProductData = (pedidoItem) => {
     return {
       nombre: pedidoItem.producto_nombre_snapshot || pedidoItem.producto?.nombre || 'Producto no disponible',
       descripcion: pedidoItem.producto_descripcion_snapshot || pedidoItem.producto?.descripcion || '',
-      imagen: pedidoItem.producto_imagen_snapshot || pedidoItem.producto?.url_imagen || '/img/placeholder.jpg',
+      imagen: getImageUrl(pedidoItem),
       peso: pedidoItem.producto_peso_snapshot || pedidoItem.producto?.peso || '',
       categoria: pedidoItem.categoria_nombre_snapshot || pedidoItem.producto?.categoria?.nombre || 'Sin categoría',
       precio: pedidoItem.precio, // Este siempre está en pedido_items
@@ -221,7 +247,8 @@ function OrdersPage() {
         };
 
         // Mostrar mensaje de éxito
-        toast.success(`Pedido #${searchOrderId} encontrado`);
+        const codigoPedido = normalizedOrder.codigo_pedido || `#${searchOrderId}`;
+        toast.success(`Pedido ${codigoPedido} encontrado`);
         openOrderDetails(normalizedOrder);
       } else {
         toast.error('Pedido no encontrado');
@@ -281,7 +308,7 @@ function OrdersPage() {
 
         {/* Barra de búsqueda por ID */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-3">Buscar Pedido por ID</h2>
+          <h2 className="text-lg font-medium text-gray-900 mb-3">Buscar Pedido</h2>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
               <div className="relative">
@@ -290,7 +317,7 @@ function OrdersPage() {
                   value={searchOrderId}
                   onChange={(e) => setSearchOrderId(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSearchOrder()}
-                  placeholder="Ingresa el ID del pedido (ej: 123)"
+                  placeholder="Ingresa el ID del pedido o código (ej: 123 o FR-20250715-001)"
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -357,7 +384,7 @@ function OrdersPage() {
                     <div className="col-span-2">
                       <div className="flex items-center gap-2">
                         <Package className="w-4 h-4 text-gray-400" />
-                        <span className="font-medium text-gray-900">#{order.id_pedido}</span>
+                        <span className="font-medium text-gray-900">{order.codigo_pedido || `#${order.id_pedido}`}</span>
                       </div>
                     </div>
 
@@ -433,7 +460,7 @@ function OrdersPage() {
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-2">
                         <Package className="w-4 h-4 text-gray-400" />
-                        <span className="font-medium text-gray-900">Pedido #{order.id_pedido}</span>
+                        <span className="font-medium text-gray-900">{order.codigo_pedido || `Pedido #${order.id_pedido}`}</span>
                       </div>
                       <div className="text-sm text-gray-500">
                         {order.fecha_creacion ? new Date(order.fecha_creacion).toLocaleDateString('es-PE', {
@@ -528,7 +555,7 @@ function OrdersPage() {
                 <div className="flex justify-between items-center">
                   <div>
                     <h2 className="text-lg md:text-xl font-bold text-gray-900">
-                      Pedido #{selectedOrder.id_pedido}
+                      {selectedOrder.codigo_pedido || `Pedido #${selectedOrder.id_pedido}`}
                     </h2>
                     <p className="text-sm text-gray-500 mt-1">
                       Realizado el {selectedOrder.fecha_creacion ? formatDate(selectedOrder.fecha_creacion) : 'N/A'}
