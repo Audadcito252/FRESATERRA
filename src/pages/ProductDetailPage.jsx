@@ -471,7 +471,7 @@ const ProductDetailPage = () => {
             <div className="mb-4">
               <StockAlert product={product} />
               {(() => {
-                const stockStatus = getStockStatus(product);
+                const stockStatus = getStockStatus(product, false); // false = no mostrar cantidad específica
                 // Solo mostrar información adicional si es relevante y no redundante
                 if (stockStatus.status === 'in-stock') {
                   return (

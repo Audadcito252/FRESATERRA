@@ -70,9 +70,10 @@ const useStockValidation = () => {
   /**
    * Obtiene el estado del stock de un producto
    * @param {Object} product - Objeto producto
+   * @param {boolean} showQuantity - Si debe mostrar la cantidad específica o mensaje genérico
    * @returns {Object} Estado del stock con información visual
    */
-  const getStockStatus = useCallback((product) => {
+  const getStockStatus = useCallback((product, showQuantity = true) => {
     const availableStock = product.cantidad_disponible || product.stock || 0;
     const isInStock = product.en_stock !== undefined ? product.en_stock : product.inStock;
     
@@ -89,7 +90,7 @@ const useStockValidation = () => {
     if (availableStock <= 3) {
       return {
         status: 'low-stock',
-        text: `Stock limitado`,
+        text: showQuantity ? `Últimas ${availableStock} unidades` : `Stock limitado`,
         color: 'text-orange-600',
         bgColor: 'bg-orange-100',
         available: availableStock
@@ -99,7 +100,7 @@ const useStockValidation = () => {
     if (availableStock <= 10) {
       return {
         status: 'medium-stock',
-        text: `Stock limitado (${availableStock} unidades)`,
+        text: showQuantity ? `Stock limitado (${availableStock} unidades)` : `Stock limitado`,
         color: 'text-yellow-600',
         bgColor: 'bg-yellow-100',
         available: availableStock
